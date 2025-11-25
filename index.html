@@ -924,12 +924,23 @@
                 
                 try {
                     if (editingId) {
-                        await firebase.firestore().doc(`artifacts/${appId}/users/${userId}/entries/${editingId}`).update(payload);
+                        // CORREÇÃO: Usar estrutura correta do Firestore
+                        await firebase.firestore()
+                            .collection('financas')
+                            .doc(userId)
+                            .collection('entries')
+                            .doc(editingId)
+                            .update(payload);
                     } else {
-                        await firebase.firestore().collection(`artifacts/${appId}/users/${userId}/entries`).add({
-                            ...payload,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
+                        // CORREÇÃO: Usar estrutura correta do Firestore
+                        await firebase.firestore()
+                            .collection('financas')
+                            .doc(userId)
+                            .collection('entries')
+                            .add({
+                                ...payload,
+                                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            });
                     }
                     setForm(initialForm);
                     setEditingId(null);
@@ -942,7 +953,13 @@
             const remove = async (id) => { 
                 if (confirm('Tem certeza que deseja apagar este item?')) {
                     try {
-                        await firebase.firestore().doc(`artifacts/${appId}/users/${userId}/entries/${id}`).delete();
+                        // CORREÇÃO: Usar estrutura correta do Firestore
+                        await firebase.firestore()
+                            .collection('financas')
+                            .doc(userId)
+                            .collection('entries')
+                            .doc(id)
+                            .delete();
                     } catch (err) {
                         console.error('Erro ao excluir:', err);
                         alert('Erro ao excluir item.');
@@ -1311,9 +1328,12 @@
 
                     const newPaidInstallments = installment.current;
                     
-                    // Atualiza a entrada pai com a nova quantidade de parcelas pagas
+                    // CORREÇÃO: Usar estrutura correta do Firestore
                     await firebase.firestore()
-                        .doc(`artifacts/${appId}/users/${userId}/entries/${installment.parentId}`)
+                        .collection('financas')
+                        .doc(userId)
+                        .collection('entries')
+                        .doc(installment.parentId)
                         .update({
                             paidInstallments: newPaidInstallments,
                             status: newPaidInstallments === parentEntry.totalInstallments ? 'paid' : 'pending',
@@ -1335,9 +1355,12 @@
                 if (!parent) return;
 
                 try {
-                    // Marca todas as parcelas como pagas
+                    // CORREÇÃO: Usar estrutura correta do Firestore
                     await firebase.firestore()
-                        .doc(`artifacts/${appId}/users/${userId}/entries/${parentId}`)
+                        .collection('financas')
+                        .doc(userId)
+                        .collection('entries')
+                        .doc(parentId)
                         .update({
                             paidInstallments: parent.parent.totalInstallments,
                             status: 'paid',
@@ -1666,8 +1689,11 @@
                                     console.log('Usuário logado:', user.uid);
                                     setUserId(user.uid);
                                     
+                                    // CORREÇÃO: Usar estrutura correta do Firestore
                                     const unsubscribe = firebase.firestore()
-                                        .collection(`artifacts/${appId}/users/${user.uid}/entries`)
+                                        .collection('financas')
+                                        .doc(user.uid)
+                                        .collection('entries')
                                         .onSnapshot((snapshot) => {
                                             const entriesData = snapshot.docs.map(doc => ({ 
                                                 id: doc.id, 
