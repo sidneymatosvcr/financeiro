@@ -1239,34 +1239,112 @@
             );
         };
 
-        // --- PARCELAS ---
-        const InstallmentsView = ({ entries, darkMode }) => {
-            const list = useMemo(() => {
+        // --- PARCELAS COM SISTEMA DE QUITAÇÃO ---
+        const InstallmentsView = ({ entries, darkMode, userId }) => {
+            const [payingInstallment, setPayingInstallment] = useState(null);
+
+            const { list, groupedByParent } = useMemo(() => {
                 let l = [];
+                let grouped = {};
+
                 entries
-                    .filter(e => e.isCreditCard && safeInt(e.totalInstallments) > 1 && safeInt(e.paidInstallments) < safeInt(e.totalInstallments))
+                    .filter(e => e.isCreditCard && safeInt(e.totalInstallments) > 1)
                     .forEach(e => {
                         const val = safeFloat(e.amount) / safeInt(e.totalInstallments);
                         const total = safeInt(e.totalInstallments);
                         const paid = safeInt(e.paidInstallments);
                         
-                        for(let i = paid; i < total; i++) {
+                        grouped[e.id] = {
+                            parent: e,
+                            installments: []
+                        };
+
+                        for(let i = 0; i < total; i++) {
                             const d = new Date(safeDate(e.dueDate)); 
                             d.setMonth(d.getMonth() + i);
-                            l.push({ 
-                                uniqueId: `${e.id}_${i}`, 
+                            
+                            const installment = { 
+                                uniqueId: `${e.id}_${i}`,
+                                parentId: e.id,
                                 description: e.description, 
                                 current: i + 1, 
                                 total, 
                                 amount: val, 
-                                dueDate: d 
-                            });
+                                dueDate: d,
+                                isPaid: i < paid,
+                                status: i < paid ? 'paid' : (d < new Date() ? 'late' : 'pending')
+                            };
+                            
+                            l.push(installment);
+                            grouped[e.id].installments.push(installment);
                         }
                     });
-                return l.sort((a, b) => a.dueDate - b.dueDate);
+                
+                return { 
+                    list: l.sort((a, b) => a.dueDate - b.dueDate),
+                    groupedByParent: grouped 
+                };
             }, [entries]);
 
-            const totalPendente = list.reduce((acc, curr) => acc + safeFloat(curr.amount), 0);
+            const totalPendente = list.filter(i => !i.isPaid).reduce((acc, curr) => acc + safeFloat(curr.amount), 0);
+            const totalQuitado = list.filter(i => i.isPaid).reduce((acc, curr) => acc + safeFloat(curr.amount), 0);
+            const parcelasPendentes = list.filter(i => !i.isPaid).length;
+            const parcelasQuitadas = list.filter(i => i.isPaid).length;
+
+            const payInstallment = async (installment) => {
+                setPayingInstallment(installment.uniqueId);
+                
+                try {
+                    const parentEntry = entries.find(e => e.id === installment.parentId);
+                    if (!parentEntry) {
+                        throw new Error('Entrada pai não encontrada');
+                    }
+
+                    const newPaidInstallments = installment.current;
+                    
+                    // Atualiza a entrada pai com a nova quantidade de parcelas pagas
+                    await firebase.firestore()
+                        .doc(`artifacts/${appId}/users/${userId}/entries/${installment.parentId}`)
+                        .update({
+                            paidInstallments: newPaidInstallments,
+                            status: newPaidInstallments === parentEntry.totalInstallments ? 'paid' : 'pending',
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                    console.log(`Parcela ${installment.current}/${installment.total} quitada com sucesso!`);
+                    
+                } catch (err) {
+                    console.error('Erro ao quitar parcela:', err);
+                    alert('Erro ao quitar parcela. Verifique o console.');
+                } finally {
+                    setPayingInstallment(null);
+                }
+            };
+
+            const payAllInstallments = async (parentId) => {
+                const parent = groupedByParent[parentId];
+                if (!parent) return;
+
+                try {
+                    // Marca todas as parcelas como pagas
+                    await firebase.firestore()
+                        .doc(`artifacts/${appId}/users/${userId}/entries/${parentId}`)
+                        .update({
+                            paidInstallments: parent.parent.totalInstallments,
+                            status: 'paid',
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                    console.log(`Todas as parcelas de ${parent.parent.description} quitadas!`);
+                    
+                } catch (err) {
+                    console.error('Erro ao quitar todas as parcelas:', err);
+                    alert('Erro ao quitar parcelas. Verifique o console.');
+                }
+            };
+
+            const pendingInstallments = list.filter(i => !i.isPaid);
+            const paidInstallments = list.filter(i => i.isPaid);
 
             return (
                 <div className="space-y-6">
@@ -1276,22 +1354,39 @@
                         <h2 className={`text-xl font-bold mb-2 ${
                             darkMode ? 'text-white' : 'text-gray-800'
                         }`}>
-                            📅 Linha do Tempo de Parcelas
+                            📅 Sistema de Parcelas
                         </h2>
                         <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Acompanhe todas as parcelas futuras das suas despesas parceladas
+                            Gerencie e quite suas parcelas pendentes
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* CARDS DE RESUMO */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className={`p-4 rounded-xl shadow border-l-4 border-orange-500 ${
                             darkMode ? 'bg-gray-800' : 'bg-white'
                         }`}>
                             <h3 className={`text-xs font-bold uppercase mb-1 ${
                                 darkMode ? 'text-gray-400' : 'text-gray-500'
-                            }`}>Total em Parcelas</h3>
+                            }`}>Total Pendente</h3>
                             <p className={`text-xl md:text-2xl font-extrabold text-orange-500`}>
                                 {formatCurrency(totalPendente)}
+                            </p>
+                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                                {parcelasPendentes} parcelas
+                            </p>
+                        </div>
+                        <div className={`p-4 rounded-xl shadow border-l-4 border-emerald-500 ${
+                            darkMode ? 'bg-gray-800' : 'bg-white'
+                        }`}>
+                            <h3 className={`text-xs font-bold uppercase mb-1 ${
+                                darkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}>Total Quitado</h3>
+                            <p className={`text-xl md:text-2xl font-extrabold text-emerald-500`}>
+                                {formatCurrency(totalQuitado)}
+                            </p>
+                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                                {parcelasQuitadas} parcelas
                             </p>
                         </div>
                         <div className={`p-4 rounded-xl shadow border-l-4 border-purple-500 ${
@@ -1299,27 +1394,46 @@
                         }`}>
                             <h3 className={`text-xs font-bold uppercase mb-1 ${
                                 darkMode ? 'text-gray-400' : 'text-gray-500'
-                            }`}>Parcelas Pendentes</h3>
+                            }`}>Próximo Vencimento</h3>
                             <p className={`text-xl md:text-2xl font-extrabold text-purple-500`}>
-                                {list.length}
+                                {pendingInstallments.length > 0 ? formatDate(pendingInstallments[0].dueDate) : '--/--/--'}
                             </p>
+                            {pendingInstallments.length > 0 && (
+                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                                    {formatCurrency(pendingInstallments[0].amount)}
+                                </p>
+                            )}
                         </div>
                         <div className={`p-4 rounded-xl shadow border-l-4 border-blue-500 ${
                             darkMode ? 'bg-gray-800' : 'bg-white'
                         }`}>
                             <h3 className={`text-xs font-bold uppercase mb-1 ${
                                 darkMode ? 'text-gray-400' : 'text-gray-500'
-                            }`}>Próximo Vencimento</h3>
+                            }`}>Compras Parceladas</h3>
                             <p className={`text-xl md:text-2xl font-extrabold text-blue-500`}>
-                                {list.length > 0 ? formatDate(list[0].dueDate) : '--/--/--'}
+                                {Object.keys(groupedByParent).length}
+                            </p>
+                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                                {list.length} parcelas no total
                             </p>
                         </div>
                     </div>
 
+                    {/* PARCELAS PENDENTES */}
                     <div className={`rounded-xl shadow overflow-hidden ${
                         darkMode ? 'bg-gray-800' : 'bg-white'
                     }`}>
-                        {list.length === 0 ? (
+                        <div className={`p-4 border-b ${
+                            darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'
+                        }`}>
+                            <h3 className={`text-lg font-bold ${
+                                darkMode ? 'text-white' : 'text-gray-800'
+                            }`}>
+                                ⏳ Parcelas Pendentes ({pendingInstallments.length})
+                            </h3>
+                        </div>
+
+                        {pendingInstallments.length === 0 ? (
                             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                                 <div className="text-4xl mb-4">🎉</div>
                                 <p className="text-lg font-semibold mb-2">Nenhuma parcela pendente!</p>
@@ -1327,14 +1441,15 @@
                             </div>
                         ) : (
                             <div className="flex flex-col">
-                                {list.map(item => {
-                                    const daysUntil = getDaysUntil(item.dueDate);
+                                {pendingInstallments.map(installment => {
+                                    const daysUntil = getDaysUntil(installment.dueDate);
                                     const isLate = daysUntil < 0;
                                     const isSoon = daysUntil <= 7 && daysUntil >= 0;
+                                    const parent = groupedByParent[installment.parentId];
                                     
                                     return (
                                         <div 
-                                            key={item.uniqueId} 
+                                            key={installment.uniqueId} 
                                             className={`flex justify-between items-center p-4 border-b last:border-0 transition-colors ${
                                                 isLate ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-l-red-500' :
                                                 isSoon ? 'bg-orange-50 dark:bg-orange-900/20 border-l-4 border-l-orange-500' :
@@ -1345,33 +1460,173 @@
                                                 <div className={`font-bold text-sm ${
                                                     darkMode ? 'text-gray-200' : 'text-gray-800'
                                                 }`}>
-                                                    {item.description}
+                                                    {installment.description}
                                                 </div>
                                                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                    {formatDate(item.dueDate.toISOString())} • 
-                                                    Parc {item.current}/{item.total} • 
+                                                    Parcela {installment.current}/{installment.total} • 
+                                                    Vence: {formatDate(installment.dueDate.toISOString())} • 
                                                     {isLate ? ` ${Math.abs(daysUntil)} dias atrasado` :
                                                      isSoon ? ` em ${daysUntil} dias` :
                                                      ` em ${daysUntil} dias`}
                                                 </div>
+                                                {parent && (
+                                                    <div className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+                                                        {parent.parent.paidInstallments}/{parent.parent.totalInstallments} parcelas pagas
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-red-500">
-                                                    {formatCurrency(item.amount)}
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right">
+                                                    <div className="font-bold text-red-500">
+                                                        {formatCurrency(installment.amount)}
+                                                    </div>
+                                                    <div className={`text-xs ${
+                                                        isLate ? 'text-red-500 font-bold' :
+                                                        isSoon ? 'text-orange-500' :
+                                                        darkMode ? 'text-gray-400' : 'text-gray-500'
+                                                    }`}>
+                                                        {isLate ? 'ATRASADO' : isSoon ? 'PRÓXIMO' : 'PENDENTE'}
+                                                    </div>
                                                 </div>
-                                                <div className={`text-xs ${
-                                                    isLate ? 'text-red-500 font-bold' :
-                                                    isSoon ? 'text-orange-500' :
-                                                    darkMode ? 'text-gray-400' : 'text-gray-500'
-                                                }`}>
-                                                    {isLate ? 'ATRASADO' : isSoon ? 'PRÓXIMO' : 'PENDENTE'}
-                                                </div>
+                                                <button 
+                                                    onClick={() => payInstallment(installment)}
+                                                    disabled={payingInstallment === installment.uniqueId}
+                                                    className={`px-3 py-2 rounded-lg font-semibold text-white transition-all ${
+                                                        payingInstallment === installment.uniqueId
+                                                            ? 'bg-gray-400 cursor-not-allowed'
+                                                            : 'bg-emerald-500 hover:bg-emerald-600'
+                                                    }`}
+                                                >
+                                                    {payingInstallment === installment.uniqueId ? '💫' : '💳'}
+                                                </button>
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
+                    </div>
+
+                    {/* PARCELAS QUITADAS */}
+                    {paidInstallments.length > 0 && (
+                        <div className={`rounded-xl shadow overflow-hidden ${
+                            darkMode ? 'bg-gray-800' : 'bg-white'
+                        }`}>
+                            <div className={`p-4 border-b ${
+                                darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'
+                            }`}>
+                                <h3 className={`text-lg font-bold ${
+                                    darkMode ? 'text-white' : 'text-gray-800'
+                                }`}>
+                                    ✅ Parcelas Quitadas ({paidInstallments.length})
+                                </h3>
+                            </div>
+                            <div className="flex flex-col">
+                                {paidInstallments.slice(0, 10).map(installment => (
+                                    <div 
+                                        key={installment.uniqueId} 
+                                        className={`flex justify-between items-center p-4 border-b last:border-0 ${
+                                            darkMode ? 'border-gray-700 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="flex-1">
+                                            <div className={`font-bold text-sm ${
+                                                darkMode ? 'text-gray-200' : 'text-gray-800'
+                                            }`}>
+                                                {installment.description}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                Parcela {installment.current}/{installment.total} • 
+                                                Paga em: {formatDate(new Date().toISOString())}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-bold text-emerald-500">
+                                                {formatCurrency(installment.amount)}
+                                            </div>
+                                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                QUITADO
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {paidInstallments.length > 10 && (
+                                    <div className={`p-4 text-center text-sm ${
+                                        darkMode ? 'text-gray-400' : 'text-gray-500'
+                                    }`}>
+                                        + {paidInstallments.length - 10} parcelas quitadas
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* COMPRAS PARCELADAS - VISÃO GERAL */}
+                    <div className={`rounded-xl shadow overflow-hidden ${
+                        darkMode ? 'bg-gray-800' : 'bg-white'
+                    }`}>
+                        <div className={`p-4 border-b ${
+                            darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'
+                        }`}>
+                            <h3 className={`text-lg font-bold ${
+                                darkMode ? 'text-white' : 'text-gray-800'
+                            }`}>
+                                🛒 Compras Parceladas
+                            </h3>
+                        </div>
+                        <div className="flex flex-col">
+                            {Object.entries(groupedByParent).map(([parentId, group]) => {
+                                const pendingCount = group.installments.filter(i => !i.isPaid).length;
+                                const paidCount = group.installments.filter(i => i.isPaid).length;
+                                const totalAmount = group.parent.amount;
+                                const paidAmount = paidCount * (totalAmount / group.parent.totalInstallments);
+                                
+                                return (
+                                    <div 
+                                        key={parentId}
+                                        className={`flex justify-between items-center p-4 border-b last:border-0 ${
+                                            darkMode ? 'border-gray-700 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="flex-1">
+                                            <div className={`font-bold text-sm ${
+                                                darkMode ? 'text-gray-200' : 'text-gray-800'
+                                            }`}>
+                                                {group.parent.description}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                {paidCount}/{group.parent.totalInstallments} parcelas pagas • 
+                                                Total: {formatCurrency(totalAmount)}
+                                            </div>
+                                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
+                                                <div 
+                                                    className="bg-emerald-500 h-2 rounded-full transition-all"
+                                                    style={{ width: `${(paidCount / group.parent.totalInstallments) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-right">
+                                                <div className="font-bold text-orange-500">
+                                                    {formatCurrency(totalAmount - paidAmount)}
+                                                </div>
+                                                <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Restante
+                                                </div>
+                                            </div>
+                                            {pendingCount > 0 && (
+                                                <button 
+                                                    onClick={() => payAllInstallments(parentId)}
+                                                    className="px-3 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors"
+                                                >
+                                                    Quitar Todas
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             );
@@ -1467,7 +1722,7 @@
                     case 'expenses': 
                         return <CategoryView userId={userId} entries={entries} currentDate={currentDate} setCurrentDate={setCurrentDate} darkMode={darkMode} type="Despesa" />;
                     case 'installments': 
-                        return <InstallmentsView entries={entries} darkMode={darkMode} />;
+                        return <InstallmentsView entries={entries} darkMode={darkMode} userId={userId} />;
                     default: 
                         return <DashboardView entries={entries} currentDate={currentDate} setCurrentDate={setCurrentDate} darkMode={darkMode} />;
                 }
