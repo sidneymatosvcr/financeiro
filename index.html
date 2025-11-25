@@ -3,17 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Finanças - Versão Simplificada</title>
+    <title>Sistema de Finanças - Dashboard Profissional</title>
     
+    <!-- React e ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         .loading-spinner {
@@ -28,15 +34,20 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        // Configuração do Firebase
+        // --- CONFIGURAÇÃO FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyA3LAlM2U_NRvKZj4pSuofVRj2ttZaKfhQ",
             authDomain: "controle-1b238.firebaseapp.com",
@@ -54,143 +65,847 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // Funções utilitárias
+        // --- FUNÇÕES UTILITÁRIAS ---
+        const safeFloat = (val) => { 
+            const p = parseFloat(val); 
+            return isNaN(p) ? 0 : p; 
+        };
+        
+        const safeInt = (val) => { 
+            const p = parseInt(val); 
+            return isNaN(p) ? 0 : p; 
+        };
+        
         const formatCurrency = (v) => {
             try {
                 return new Intl.NumberFormat('pt-BR', { 
                     style: 'currency', 
                     currency: 'BRL' 
-                }).format(parseFloat(v) || 0);
+                }).format(safeFloat(v));
             } catch {
                 return 'R$ 0,00';
             }
         };
-
+        
+        const safeDate = (d) => { 
+            if (!d) return new Date(); 
+            try {
+                const date = new Date(d);
+                return isNaN(date.getTime()) ? new Date() : date;
+            } catch {
+                return new Date();
+            }
+        };
+        
         const formatDate = (d) => { 
             try { 
-                return new Date(d).toLocaleDateString('pt-BR'); 
+                return safeDate(d).toLocaleDateString('pt-BR'); 
             } catch (e) { 
                 return '--/--/--'; 
             } 
         };
+        
+        const getDaysUntil = (d) => { 
+            if (!d) return 999; 
+            const n = new Date(); 
+            const t = safeDate(d); 
+            n.setHours(0,0,0,0); 
+            t.setHours(0,0,0,0); 
+            return Math.ceil((t - n) / (86400000)); 
+        };
 
-        // Componente Loading
+        // --- COMPONENTE GRÁFICO PIZZA ---
+        const PieChart = ({ data, colors, darkMode }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current || !data || data.length === 0) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(item => item.label),
+                        datasets: [{
+                            data: data.map(item => item.value),
+                            backgroundColor: colors,
+                            borderColor: darkMode ? '#374151' : '#ffffff',
+                            borderWidth: 2,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: darkMode ? '#d1d5db' : '#374151',
+                                    font: {
+                                        size: 12
+                                    },
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = Math.round((value / total) * 100);
+                                        return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '65%'
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data, colors, darkMode]);
+
+            if (!data || data.length === 0) {
+                return (
+                    <div className="chart-container flex items-center justify-center">
+                        <p className="text-gray-500 dark:text-gray-400">Sem dados para exibir</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="chart-container">
+                    <canvas ref={canvasRef} />
+                </div>
+            );
+        };
+
+        // --- LISTAS DE CATEGORIAS ---
+        const CATEGORIAS_ENTRADAS = ["Salário", "Aluguel Casa", "Aluguel Kitnet", "Renda Extra", "Outros"];
+        const CATEGORIAS_SAIDAS = ["Aluguel", "Água", "Luz", "Internet", "Celular", "Carro", "Seguro", "Mercado", "Lazer", "Saúde"];
+
+        // --- COMPONENTE LOADING ---
         const LoadingSpinner = () => (
-            <div className="h-screen flex items-center justify-center bg-gray-50">
+            <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                 <div className="flex flex-col items-center gap-4">
                     <div className="loading-spinner"></div>
-                    <p className="text-gray-600">Carregando suas finanças...</p>
+                    <p className="text-gray-600 dark:text-gray-400">Carregando suas finanças...</p>
                 </div>
             </div>
         );
 
-        // Componente principal
+        // --- HEADER ---
+        const Header = ({ darkMode, toggleDarkMode, activeView, setActiveView }) => {
+            const tabs = [
+                { id: 'dashboard', label: 'Visão Geral' },
+                { id: 'incomes', label: 'Entradas' },
+                { id: 'expenses', label: 'Saídas' }
+            ];
+
+            return (
+                <header className={`p-4 shadow-md sticky top-0 z-50 transition-colors ${
+                    darkMode ? 'bg-gray-900 border-b border-gray-800 text-white' : 'bg-white border-b border-gray-200 text-gray-900'
+                }`}>
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                        <h1 className="text-xl md:text-2xl font-bold text-sky-500 flex items-center gap-2">
+                            <span>📊 Dashboard Financeiro</span>
+                        </h1>
+                        
+                        <nav className="flex flex-wrap justify-center gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-full md:w-auto">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveView(tab.id)}
+                                    className={`flex-1 md:flex-none px-3 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
+                                        activeView === tab.id
+                                            ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm border border-gray-200 dark:border-gray-600'
+                                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </nav>
+
+                        <button 
+                            onClick={toggleDarkMode} 
+                            className={`p-2 rounded-full transition-colors ${
+                                darkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            {darkMode ? '☀️' : '🌙'}
+                        </button>
+                    </div>
+                </header>
+            );
+        };
+
+        // --- CARD ---
+        const Card = ({ title, value, color, subtitle, darkMode }) => {
+            const getColorClass = (color) => {
+                const colors = {
+                    primary: { text: 'text-sky-500', border: 'border-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
+                    success: { text: 'text-emerald-500', border: 'border-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                    danger: { text: 'text-red-500', border: 'border-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
+                    warning: { text: 'text-orange-500', border: 'border-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' }
+                };
+                return colors[color] || colors.primary;
+            };
+
+            const colorClass = getColorClass(color);
+
+            return (
+                <div className={`p-6 rounded-xl shadow border-l-4 ${colorClass.border} ${colorClass.bg} ${
+                    darkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                    <h3 className={`text-sm font-semibold uppercase mb-2 ${
+                        darkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                        {title}
+                    </h3>
+                    <p className={`text-2xl md:text-3xl font-extrabold ${colorClass.text} mb-1`}>
+                        {formatCurrency(value)}
+                    </p>
+                    {subtitle && (
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {subtitle}
+                        </p>
+                    )}
+                </div>
+            );
+        };
+
+        // --- DASHBOARD COMPLETO ---
+        const DashboardView = ({ entries, darkMode }) => {
+            const stats = useMemo(() => {
+                let saldo = 0;
+                let receitasTotais = 0;
+                let despesasTotais = 0;
+                let receitasRealizadas = 0;
+                let despesasPagas = 0;
+                let alertas = [];
+                let categoriasReceitas = {};
+                let categoriasDespesas = {};
+
+                entries.forEach(e => {
+                    const val = safeFloat(e.amount);
+                    const isPaid = e.status === 'paid';
+
+                    if (e.type === 'Receita') {
+                        receitasTotais += val;
+                        if (isPaid) {
+                            receitasRealizadas += val;
+                            saldo += val;
+                        }
+
+                        const categoria = e.category || 'Outras';
+                        categoriasReceitas[categoria] = (categoriasReceitas[categoria] || 0) + val;
+
+                    } else if (e.type === 'Despesa') {
+                        despesasTotais += val;
+                        if (isPaid) {
+                            despesasPagas += val;
+                            saldo -= val;
+                        }
+
+                        const categoria = e.category || 'Outras';
+                        categoriasDespesas[categoria] = (categoriasDespesas[categoria] || 0) + val;
+
+                        if (!isPaid && (getDaysUntil(e.dueDate) <= 7 || e.status === 'late')) {
+                            alertas.push(e);
+                        }
+                    }
+                });
+
+                const resultadoMensal = receitasRealizadas - despesasPagas;
+                const economiaPotencial = receitasTotais - despesasTotais;
+
+                const dadosReceitas = Object.entries(categoriasReceitas)
+                    .map(([label, value]) => ({ label, value }))
+                    .sort((a, b) => b.value - a.value);
+
+                const dadosDespesas = Object.entries(categoriasDespesas)
+                    .map(([label, value]) => ({ label, value }))
+                    .sort((a, b) => b.value - a.value);
+
+                const coresGrafico = [
+                    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
+                    '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#64748b'
+                ];
+
+                return {
+                    saldo,
+                    receitasTotais,
+                    despesasTotais,
+                    receitasRealizadas,
+                    despesasPagas,
+                    resultadoMensal,
+                    economiaPotencial,
+                    alertas,
+                    dadosReceitas,
+                    dadosDespesas,
+                    coresGrafico
+                };
+            }, [entries]);
+
+            return (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Card 
+                            title="Saldo Atual" 
+                            value={stats.saldo} 
+                            color={stats.saldo >= 0 ? 'success' : 'danger'} 
+                            subtitle="Disponível agora"
+                            darkMode={darkMode}
+                        />
+                        <Card 
+                            title="Receitas Totais" 
+                            value={stats.receitasTotais} 
+                            color="success" 
+                            subtitle={`${formatCurrency(stats.receitasRealizadas)} realizadas`}
+                            darkMode={darkMode}
+                        />
+                        <Card 
+                            title="Despesas Totais" 
+                            value={stats.despesasTotais} 
+                            color="danger" 
+                            subtitle={`${formatCurrency(stats.despesasPagas)} pagas`}
+                            darkMode={darkMode}
+                        />
+                        <Card 
+                            title="Resultado" 
+                            value={stats.resultadoMensal} 
+                            color={stats.resultadoMensal >= 0 ? 'primary' : 'warning'} 
+                            subtitle="Receitas - Despesas"
+                            darkMode={darkMode}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className={`p-6 rounded-xl shadow ${
+                            darkMode ? 'bg-gray-800' : 'bg-white'
+                        }`}>
+                            <h3 className={`text-lg font-bold mb-4 ${
+                                darkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
+                                📈 Receitas por Categoria
+                            </h3>
+                            <PieChart 
+                                data={stats.dadosReceitas} 
+                                colors={stats.coresGrafico}
+                                darkMode={darkMode}
+                            />
+                        </div>
+
+                        <div className={`p-6 rounded-xl shadow ${
+                            darkMode ? 'bg-gray-800' : 'bg-white'
+                        }`}>
+                            <h3 className={`text-lg font-bold mb-4 ${
+                                darkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
+                                📉 Despesas por Categoria
+                            </h3>
+                            <PieChart 
+                                data={stats.dadosDespesas} 
+                                colors={stats.coresGrafico}
+                                darkMode={darkMode}
+                            />
+                        </div>
+                    </div>
+
+                    <div className={`p-6 rounded-xl shadow ${
+                        darkMode ? 'bg-gray-800' : 'bg-white'
+                    }`}>
+                        <h3 className="font-bold text-lg mb-4 text-orange-500 flex items-center gap-2">
+                            🔔 Alertas e Pendências
+                        </h3>
+                        {stats.alertas.length === 0 ? (
+                            <p className="text-gray-400 text-sm">🎉 Nenhuma pendência urgente!</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {stats.alertas.map((a, i) => (
+                                    <div key={i} className={`flex justify-between items-center p-4 rounded-lg border ${
+                                        darkMode ? 'border-gray-700 bg-gray-700/50' : 'border-gray-200 bg-gray-50'
+                                    }`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-3 h-3 rounded-full ${
+                                                getDaysUntil(a.dueDate) < 0 ? 'bg-red-500' : 'bg-orange-500'
+                                            }`}></div>
+                                            <div>
+                                                <div className={`font-bold ${
+                                                    darkMode ? 'text-white' : 'text-gray-800'
+                                                }`}>
+                                                    {a.description}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    Vence: {formatDate(a.dueDate)} • 
+                                                    {getDaysUntil(a.dueDate) < 0 
+                                                        ? ` ${Math.abs(getDaysUntil(a.dueDate))} dias atrasado` 
+                                                        : ` em ${getDaysUntil(a.dueDate)} dias`
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-bold text-red-500">
+                                                {formatCurrency(a.amount)}
+                                            </div>
+                                            <div className={`text-xs ${
+                                                darkMode ? 'text-gray-400' : 'text-gray-500'
+                                            }`}>
+                                                {a.status === 'late' ? 'Atrasado' : 'Pendente'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- VIEW DE CADASTRO ---
+        const CategoryView = ({ userId, entries, darkMode, type }) => {
+            const isIncome = type === 'Receita';
+            const suggestions = isIncome ? CATEGORIAS_ENTRADAS : CATEGORIAS_SAIDAS;
+            
+            const getColorClass = () => {
+                return isIncome ? {
+                    text: 'text-emerald-500',
+                    bg: 'bg-emerald-500',
+                    hover: 'hover:bg-emerald-600'
+                } : {
+                    text: 'text-red-500', 
+                    bg: 'bg-red-500',
+                    hover: 'hover:bg-red-600'
+                };
+            };
+
+            const [editingId, setEditingId] = useState(null);
+            const initialForm = { 
+                description: '', 
+                category: '', 
+                amount: '', 
+                dueDate: new Date().toISOString().split('T')[0],
+                status: 'pending', 
+                observation: '',
+                isCreditCard: false, 
+                totalInstallments: 1, 
+                paidInstallments: 0, 
+                isFixed: false 
+            };
+            const [form, setForm] = useState(initialForm);
+
+            const filtered = entries.filter(e => e.type === type)
+                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            const totalPeriodo = filtered.reduce((acc, curr) => acc + safeFloat(curr.amount), 0);
+            const colorClass = getColorClass();
+
+            const save = async (e) => {
+                e.preventDefault();
+                
+                if (!form.description.trim()) {
+                    alert('Descrição é obrigatória');
+                    return;
+                }
+                if (safeFloat(form.amount) <= 0) {
+                    alert('Valor deve ser maior que zero');
+                    return;
+                }
+
+                const payload = { 
+                    ...form, 
+                    type, 
+                    amount: safeFloat(form.amount), 
+                    totalInstallments: safeInt(form.totalInstallments), 
+                    paidInstallments: safeInt(form.paidInstallments),
+                    userId 
+                };
+                
+                try {
+                    if (editingId) {
+                        await db.collection('financas').doc(editingId).update(payload);
+                    } else {
+                        await db.collection('financas').add({
+                            ...payload,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                    setForm(initialForm);
+                    setEditingId(null);
+                } catch(err) { 
+                    console.error('Erro ao salvar:', err);
+                    alert('Erro ao salvar: ' + err.message);
+                }
+            };
+
+            const remove = async (id) => { 
+                if (confirm('Tem certeza que deseja apagar este item?')) {
+                    try {
+                        await db.collection('financas').doc(id).delete();
+                    console.log('✅ Item excluído!');
+                    alert('Item excluído com sucesso!');
+                    } catch (err) {
+                        console.error('Erro ao excluir:', err);
+                        alert('Erro ao excluir item: ' + err.message);
+                    }
+                }
+            };
+
+            const edit = (item) => { 
+                setEditingId(item.id); 
+                setForm({ 
+                    ...initialForm,
+                    ...item
+                }); 
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const inputClass = `w-full p-3 rounded-lg border text-sm focus:ring-2 focus:outline-none transition-all ${
+                darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-sky-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-sky-500'
+            }`;
+            
+            const labelClass = `block text-xs font-bold mb-1 ml-1 ${
+                darkMode ? 'text-gray-400' : 'text-gray-500'
+            }`;
+
+            return (
+                <div className="grid lg:grid-cols-3 gap-6">
+                    {/* FORMULÁRIO */}
+                    <div className={`p-5 rounded-xl shadow h-fit ${
+                        darkMode ? 'bg-gray-800' : 'bg-white'
+                    }`}>
+                        <h3 className={`font-bold text-lg mb-4 ${colorClass.text} flex items-center justify-between`}>
+                            {editingId ? '✏️ Editando' : `➕ Nova ${isIncome ? 'Entrada' : 'Saída'}`}
+                            {editingId && (
+                                <button 
+                                    onClick={() => { setEditingId(null); setForm(initialForm); }} 
+                                    className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                            )}
+                        </h3>
+                        
+                        <div className="mb-4">
+                            <label className={labelClass}>Sugestões:</label>
+                            <div className="flex flex-wrap gap-2">
+                                {suggestions.map(cat => (
+                                    <button 
+                                        key={cat} 
+                                        type="button" 
+                                        onClick={() => setForm(p => ({ ...p, description: cat, category: cat }))} 
+                                        className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${
+                                            form.category === cat 
+                                                ? `${colorClass.bg} text-white border-transparent` 
+                                                : `border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700`
+                                        }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <form onSubmit={save} className="space-y-4">
+                            <div>
+                                <label className={labelClass}>Descrição</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Ex: Salário, Aluguel..." 
+                                    required 
+                                    value={form.description} 
+                                    onChange={e => setForm({...form, description: e.target.value})} 
+                                    className={inputClass} 
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className={labelClass}>Valor (R$)</label>
+                                    <input 
+                                        type="number" 
+                                        step="0.01" 
+                                        min="0.01"
+                                        required 
+                                        value={form.amount} 
+                                        onChange={e => setForm({...form, amount: e.target.value})} 
+                                        className={inputClass} 
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Status</label>
+                                    <select 
+                                        value={form.status} 
+                                        onChange={e => setForm({...form, status: e.target.value})} 
+                                        className={inputClass}
+                                    >
+                                        <option value="pending">Pendente</option>
+                                        <option value="paid">{isIncome ? 'Recebido' : 'Pago'}</option>
+                                        <option value="late">Atrasado</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className={labelClass}>Vencimento</label>
+                                <input 
+                                    type="date" 
+                                    required 
+                                    value={form.dueDate} 
+                                    onChange={e => setForm({...form, dueDate: e.target.value})} 
+                                    className={inputClass} 
+                                />
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Observações</label>
+                                <textarea 
+                                    rows="2" 
+                                    placeholder="Detalhes opcionais..." 
+                                    value={form.observation} 
+                                    onChange={e => setForm({...form, observation: e.target.value})} 
+                                    className={inputClass}
+                                ></textarea>
+                            </div>
+
+                            {!isIncome && (
+                                <div className={`space-y-3 pt-3 p-3 rounded-lg text-sm border ${
+                                    darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'
+                                }`}>
+                                    <label className={`flex items-center gap-2 cursor-pointer ${
+                                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                                    }`}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={form.isFixed} 
+                                            onChange={e => setForm({...form, isFixed: e.target.checked})} 
+                                            className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                                        />
+                                        Despesa Fixa (Água, Luz...)
+                                    </label>
+                                    <label className={`flex items-center gap-2 cursor-pointer ${
+                                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                                    }`}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={form.isCreditCard} 
+                                            onChange={e => setForm({...form, isCreditCard: e.target.checked})} 
+                                            className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                                        />
+                                        Parcelado / Empréstimo
+                                    </label>
+
+                                    {form.isCreditCard && (
+                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                            <input 
+                                                type="number" 
+                                                placeholder="Total Parc." 
+                                                min="1" 
+                                                value={form.totalInstallments} 
+                                                onChange={e => setForm({...form, totalInstallments: e.target.value})} 
+                                                className={inputClass} 
+                                            />
+                                            <input 
+                                                type="number" 
+                                                placeholder="Pagas" 
+                                                min="0" 
+                                                value={form.paidInstallments} 
+                                                onChange={e => setForm({...form, paidInstallments: e.target.value})} 
+                                                className={inputClass} 
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <button 
+                                type="submit" 
+                                className={`w-full py-3 rounded-lg font-bold text-white ${colorClass.bg} ${colorClass.hover} shadow-md transform active:scale-95 transition-all`}
+                            >
+                                {editingId ? 'Salvar Alterações' : 'Adicionar'}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* LISTAGEM */}
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className={`p-4 rounded-xl shadow flex justify-between items-center ${
+                            darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                            <span className="font-bold text-sm md:text-base">Total {isIncome ? 'Receitas' : 'Despesas'}:</span>
+                            <span className={`text-xl md:text-2xl font-extrabold ${colorClass.text}`}>
+                                {formatCurrency(totalPeriodo)}
+                            </span>
+                        </div>
+
+                        <div className={`rounded-xl shadow overflow-hidden ${
+                            darkMode ? 'bg-gray-800' : 'bg-white'
+                        }`}>
+                            {filtered.length === 0 ? (
+                                <div className="p-8 text-center opacity-50 text-sm">
+                                    Nenhum registro encontrado.
+                                </div>
+                            ) : (
+                                <div className="flex flex-col">
+                                    {filtered.map(item => (
+                                        <div 
+                                            key={item.id} 
+                                            className={`p-4 border-b last:border-0 hover:bg-black/5 transition-colors ${
+                                                darkMode ? 'border-gray-700 hover:bg-white/5' : 'border-gray-100'
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <div className={`font-bold text-base ${
+                                                        darkMode ? 'text-gray-200' : 'text-gray-800'
+                                                    }`}>
+                                                        {item.description}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {item.isFixed && (
+                                                            <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">
+                                                                FIXA
+                                                            </span>
+                                                        )}
+                                                        {item.isCreditCard && (
+                                                            <span className="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded font-bold">
+                                                                PARC {item.paidInstallments}/{item.totalInstallments}
+                                                            </span>
+                                                        )}
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                                            item.status === 'paid' 
+                                                                ? 'bg-green-100 text-green-800' 
+                                                                : item.status === 'late' 
+                                                                ? 'bg-red-100 text-red-800' 
+                                                                : 'bg-yellow-100 text-yellow-800'
+                                                        }`}>
+                                                            {item.status === 'paid' 
+                                                                ? (isIncome ? 'RECEBIDO' : 'PAGO') 
+                                                                : item.status === 'late' 
+                                                                ? 'ATRASADO' 
+                                                                : 'PENDENTE'
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className={`text-lg font-bold ${colorClass.text} whitespace-nowrap`}>
+                                                    {formatCurrency(item.amount)}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className={`text-xs grid grid-cols-1 sm:grid-cols-2 gap-1 mt-2 p-2 rounded ${
+                                                darkMode ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-500'
+                                            }`}>
+                                                <div>
+                                                    ⏳ <span className="font-semibold">Vencimento:</span> {formatDate(item.dueDate)}
+                                                </div>
+                                                {item.observation && (
+                                                    <div className="sm:col-span-2 mt-1 italic">
+                                                        📝 {item.observation}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex justify-end gap-3 mt-3">
+                                                <button 
+                                                    onClick={() => edit(item)} 
+                                                    className="text-sm text-blue-500 hover:text-blue-700 font-semibold flex items-center gap-1 transition-colors"
+                                                >
+                                                    ✏️ Editar
+                                                </button>
+                                                <button 
+                                                    onClick={() => remove(item.id)} 
+                                                    className="text-sm text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 transition-colors"
+                                                >
+                                                    🗑️ Excluir
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- APP PRINCIPAL ---
         function App() {
+            const [darkMode, setDarkMode] = useState(false);
+            const [activeView, setActiveView] = useState('dashboard');
             const [userId, setUserId] = useState(null);
             const [entries, setEntries] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
-            const [form, setForm] = useState({
-                description: '',
-                amount: '',
-                type: 'Receita',
-                dueDate: new Date().toISOString().split('T')[0]
-            });
 
             useEffect(() => {
-                const initializeApp = async () => {
+                const initializeFirebase = async () => {
                     try {
-                        console.log('Iniciando Firebase...');
+                        console.log('🚀 Iniciando Firebase...');
                         
-                        // Fazer login anônimo
                         const userCredential = await auth.signInAnonymously();
                         const user = userCredential.user;
                         setUserId(user.uid);
-                        console.log('Usuário logado:', user.uid);
+                        console.log('✅ Usuário autenticado:', user.uid);
 
-                        // Escutar mudanças na coleção
-                        const unsubscribe = db.collection('financas_simples')
+                        const unsubscribe = db.collection('financas')
                             .where('userId', '==', user.uid)
                             .onSnapshot((snapshot) => {
-                                const entriesData = snapshot.docs.map(doc => ({
-                                    id: doc.id,
-                                    ...doc.data()
+                                const entriesData = snapshot.docs.map(doc => ({ 
+                                    id: doc.id, 
+                                    ...doc.data() 
                                 }));
-                                console.log('Dados carregados:', entriesData);
+                                console.log('📊 Dados carregados:', entriesData.length, 'registros');
                                 setEntries(entriesData);
                                 setLoading(false);
+                                setError(null);
                             }, (err) => {
-                                console.error('Erro no snapshot:', err);
-                                setError('Erro ao carregar dados');
+                                console.error('❌ Erro no Firestore:', err);
+                                setError('Erro ao carregar dados: ' + err.message);
                                 setLoading(false);
                             });
 
                         return unsubscribe;
 
                     } catch (err) {
-                        console.error('Erro na inicialização:', err);
-                        setError('Erro: ' + err.message);
+                        console.error('❌ Erro na inicialização:', err);
+                        setError('Erro de conexão: ' + err.message);
                         setLoading(false);
                     }
                 };
 
-                initializeApp();
+                initializeFirebase();
             }, []);
 
-            const saveEntry = async (e) => {
-                e.preventDefault();
-                
-                if (!form.description.trim() || !form.amount) {
-                    alert('Preencha descrição e valor');
-                    return;
-                }
-
-                try {
-                    const entryData = {
-                        ...form,
-                        amount: parseFloat(form.amount),
-                        userId: userId,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-
-                    console.log('Salvando:', entryData);
-                    
-                    // SALVAR NO FIRESTORE - FORMA MAIS SIMPLES
-                    await db.collection('financas_simples').add(entryData);
-                    
-                    console.log('✅ Salvo com sucesso!');
-                    setForm({ description: '', amount: '', type: 'Receita', dueDate: new Date().toISOString().split('T')[0] });
-                    
-                } catch (err) {
-                    console.error('❌ Erro ao salvar:', err);
-                    alert('Erro ao salvar: ' + err.message);
-                }
-            };
-
-            const deleteEntry = async (id) => {
-                if (confirm('Tem certeza que deseja excluir?')) {
-                    try {
-                        await db.collection('financas_simples').doc(id).delete();
-                        console.log('✅ Excluído com sucesso!');
-                    } catch (err) {
-                        console.error('Erro ao excluir:', err);
-                        alert('Erro ao excluir');
-                    }
-                }
-            };
-
-            if (loading) return <LoadingSpinner />;
+            if (loading) {
+                return <LoadingSpinner />;
+            }
 
             if (error) {
                 return (
-                    <div className="h-screen flex items-center justify-center bg-gray-50">
+                    <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                         <div className="text-center p-8 max-w-md">
                             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-                            <h2 className="text-xl font-bold text-gray-800 mb-2">Erro</h2>
-                            <p className="text-gray-600 mb-4">{error}</p>
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Erro de Conexão</h2>
+                            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
                             <button 
                                 onClick={() => window.location.reload()} 
-                                className="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600"
+                                className="w-full bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors"
                             >
                                 Tentar Novamente
                             </button>
@@ -199,168 +914,37 @@
                 );
             }
 
-            const receitas = entries.filter(e => e.type === 'Receita');
-            const despesas = entries.filter(e => e.type === 'Despesa');
-            const totalReceitas = receitas.reduce((sum, e) => sum + (e.amount || 0), 0);
-            const totalDespesas = despesas.reduce((sum, e) => sum + (e.amount || 0), 0);
-            const saldo = totalReceitas - totalDespesas;
+            const renderContent = () => {
+                switch(activeView) {
+                    case 'dashboard': 
+                        return <DashboardView entries={entries} darkMode={darkMode} />;
+                    case 'incomes': 
+                        return <CategoryView userId={userId} entries={entries} darkMode={darkMode} type="Receita" />;
+                    case 'expenses': 
+                        return <CategoryView userId={userId} entries={entries} darkMode={darkMode} type="Despesa" />;
+                    default: 
+                        return <DashboardView entries={entries} darkMode={darkMode} />;
+                }
+            };
 
             return (
-                <div className="min-h-screen bg-gray-50 p-4">
-                    <div className="max-w-4xl mx-auto">
-                        {/* Header */}
-                        <header className="bg-white rounded-lg shadow p-6 mb-6">
-                            <h1 className="text-2xl font-bold text-sky-500 text-center">
-                                💰 Sistema de Finanças Simplificado
-                            </h1>
-                            <p className="text-gray-600 text-center mt-2">
-                                User ID: {userId}
-                            </p>
-                        </header>
-
-                        {/* Cards de Resumo */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-emerald-500">
-                                <h3 className="text-sm font-semibold text-gray-500">Receitas</h3>
-                                <p className="text-2xl font-bold text-emerald-500">{formatCurrency(totalReceitas)}</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
-                                <h3 className="text-sm font-semibold text-gray-500">Despesas</h3>
-                                <p className="text-2xl font-bold text-red-500">{formatCurrency(totalDespesas)}</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-sky-500">
-                                <h3 className="text-sm font-semibold text-gray-500">Saldo</h3>
-                                <p className={`text-2xl font-bold ${saldo >= 0 ? 'text-sky-500' : 'text-orange-500'}`}>
-                                    {formatCurrency(saldo)}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Formulário */}
-                        <div className="bg-white rounded-lg shadow p-6 mb-6">
-                            <h2 className="text-lg font-bold mb-4">➕ Nova Transação</h2>
-                            <form onSubmit={saveEntry} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Descrição
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={form.description}
-                                            onChange={e => setForm({...form, description: e.target.value})}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                                            placeholder="Salário, Aluguel, etc..."
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Valor (R$)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={form.amount}
-                                            onChange={e => setForm({...form, amount: e.target.value})}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                                            placeholder="0,00"
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Tipo
-                                        </label>
-                                        <select
-                                            value={form.type}
-                                            onChange={e => setForm({...form, type: e.target.value})}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                                        >
-                                            <option value="Receita">Receita</option>
-                                            <option value="Despesa">Despesa</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Data
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={form.dueDate}
-                                            onChange={e => setForm({...form, dueDate: e.target.value})}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    className="w-full bg-sky-500 text-white py-3 rounded-lg font-bold hover:bg-sky-600 transition-colors"
-                                >
-                                    Adicionar Transação
-                                </button>
-                            </form>
-                        </div>
-
-                        {/* Lista de Transações */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h2 className="text-lg font-bold mb-4">📋 Transações ({entries.length})</h2>
-                            
-                            {entries.length === 0 ? (
-                                <p className="text-gray-500 text-center py-8">
-                                    Nenhuma transação cadastrada ainda.
-                                </p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {entries.map(entry => (
-                                        <div key={entry.id} className="flex justify-between items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`w-3 h-3 rounded-full ${
-                                                        entry.type === 'Receita' ? 'bg-emerald-500' : 'bg-red-500'
-                                                    }`}></span>
-                                                    <span className="font-semibold">{entry.description}</span>
-                                                </div>
-                                                <div className="text-sm text-gray-500 mt-1">
-                                                    {formatDate(entry.dueDate || entry.createdAt?.toDate())}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <span className={`font-bold ${
-                                                    entry.type === 'Receita' ? 'text-emerald-500' : 'text-red-500'
-                                                }`}>
-                                                    {entry.type === 'Receita' ? '+' : '-'} {formatCurrency(entry.amount)}
-                                                </span>
-                                                <button
-                                                    onClick={() => deleteEntry(entry.id)}
-                                                    className="text-red-500 hover:text-red-700 font-semibold"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Debug Info */}
-                        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <h3 className="font-bold text-yellow-800">🔧 Informações de Debug</h3>
-                            <p className="text-sm text-yellow-700">
-                                User ID: {userId}<br/>
-                                Total de entradas: {entries.length}<br/>
-                                Coleção: financas_simples
-                            </p>
-                        </div>
-                    </div>
+                <div className={`min-h-screen font-sans transition-colors duration-200 pb-10 ${
+                    darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'
+                }`}>
+                    <Header 
+                        darkMode={darkMode} 
+                        toggleDarkMode={() => setDarkMode(!darkMode)} 
+                        activeView={activeView} 
+                        setActiveView={setActiveView} 
+                    />
+                    <main className="max-w-7xl mx-auto p-4">
+                        {renderContent()}
+                    </main>
                 </div>
             );
         }
 
-        // Renderizar app
+        // Renderiza a aplicação
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
