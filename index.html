@@ -10,43 +10,10 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase SDK v10+ (versão modular) -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        
-        // Configuração do Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyA3LAlM2U_NRvKZj4pSuofVRj2ttZaKfhQ",
-            authDomain: "controle-1b238.firebaseapp.com",
-            projectId: "controle-1b238",
-            storageBucket: "controle-1b238.firebasestorage.app",
-            messagingSenderId: "636394367698",
-            appId: "1:636394367698:web:901bb30c91c46b936a9b0b"
-        };
-
-        // Inicializar Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        // Expor Firebase para o escopo global
-        window.firebaseApp = app;
-        window.firebaseDb = db;
-        window.firebaseAuth = auth;
-        window.firebaseFunctions = {
-            collection: (db, path) => collection(db, path),
-            doc: (db, path) => doc(db, path),
-            addDoc: (ref, data) => addDoc(ref, data),
-            updateDoc: (ref, data) => updateDoc(ref, data),
-            deleteDoc: (ref) => deleteDoc(ref),
-            onSnapshot: (ref, callback, errorCallback) => onSnapshot(ref, callback, errorCallback),
-            serverTimestamp: () => serverTimestamp(),
-            signInAnonymously: () => signInAnonymously(auth),
-            onAuthStateChanged: (callback) => onAuthStateChanged(auth, callback)
-        };
-    </script>
+    <!-- Firebase SDK v9+ (compatibilidade) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -95,7 +62,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // Configuração do Firebase
+        // --- CONFIGURAÇÃO FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyA3LAlM2U_NRvKZj4pSuofVRj2ttZaKfhQ",
             authDomain: "controle-1b238.firebaseapp.com",
@@ -957,18 +924,12 @@
                 
                 try {
                     if (editingId) {
-                        await window.firebaseFunctions.updateDoc(
-                            window.firebaseFunctions.doc(window.firebaseDb, `artifacts/${appId}/users/${userId}/entries/${editingId}`), 
-                            payload
-                        );
+                        await firebase.firestore().doc(`artifacts/${appId}/users/${userId}/entries/${editingId}`).update(payload);
                     } else {
-                        await window.firebaseFunctions.addDoc(
-                            window.firebaseFunctions.collection(window.firebaseDb, `artifacts/${appId}/users/${userId}/entries`), 
-                            {
-                                ...payload,
-                                timestamp: window.firebaseFunctions.serverTimestamp()
-                            }
-                        );
+                        await firebase.firestore().collection(`artifacts/${appId}/users/${userId}/entries`).add({
+                            ...payload,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
                     }
                     setForm(initialForm);
                     setEditingId(null);
@@ -981,9 +942,7 @@
             const remove = async (id) => { 
                 if (confirm('Tem certeza que deseja apagar este item?')) {
                     try {
-                        await window.firebaseFunctions.deleteDoc(
-                            window.firebaseFunctions.doc(window.firebaseDb, `artifacts/${appId}/users/${userId}/entries/${id}`)
-                        );
+                        await firebase.firestore().doc(`artifacts/${appId}/users/${userId}/entries/${id}`).delete();
                     } catch (err) {
                         console.error('Erro ao excluir:', err);
                         alert('Erro ao excluir item.');
@@ -1353,14 +1312,13 @@
                     const newPaidInstallments = installment.current;
                     
                     // Atualiza a entrada pai com a nova quantidade de parcelas pagas
-                    await window.firebaseFunctions.updateDoc(
-                        window.firebaseFunctions.doc(window.firebaseDb, `artifacts/${appId}/users/${userId}/entries/${installment.parentId}`),
-                        {
+                    await firebase.firestore()
+                        .doc(`artifacts/${appId}/users/${userId}/entries/${installment.parentId}`)
+                        .update({
                             paidInstallments: newPaidInstallments,
                             status: newPaidInstallments === parentEntry.totalInstallments ? 'paid' : 'pending',
-                            timestamp: window.firebaseFunctions.serverTimestamp()
-                        }
-                    );
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
 
                     console.log(`Parcela ${installment.current}/${installment.total} quitada com sucesso!`);
                     
@@ -1378,14 +1336,13 @@
 
                 try {
                     // Marca todas as parcelas como pagas
-                    await window.firebaseFunctions.updateDoc(
-                        window.firebaseFunctions.doc(window.firebaseDb, `artifacts/${appId}/users/${userId}/entries/${parentId}`),
-                        {
+                    await firebase.firestore()
+                        .doc(`artifacts/${appId}/users/${userId}/entries/${parentId}`)
+                        .update({
                             paidInstallments: parent.parent.totalInstallments,
                             status: 'paid',
-                            timestamp: window.firebaseFunctions.serverTimestamp()
-                        }
-                    );
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
 
                     console.log(`Todas as parcelas de ${parent.parent.description} quitadas!`);
                     
@@ -1697,23 +1654,21 @@
             useEffect(() => {
                 const initializeFirebase = async () => {
                     try {
-                        // Aguardar o Firebase carregar
-                        if (!window.firebaseDb) {
-                            setTimeout(initializeFirebase, 100);
-                            return;
+                        // Verificar se o Firebase já foi inicializado
+                        if (!firebase.apps.length) {
+                            firebase.initializeApp(firebaseConfig);
                         }
-
                         console.log('Firebase inicializado com sucesso!');
                         
-                        window.firebaseFunctions.onAuthStateChanged(async (user) => {
+                        firebase.auth().onAuthStateChanged(async (user) => {
                             try {
                                 if (user) {
                                     console.log('Usuário logado:', user.uid);
                                     setUserId(user.uid);
                                     
-                                    const unsubscribe = window.firebaseFunctions.onSnapshot(
-                                        window.firebaseFunctions.collection(window.firebaseDb, `artifacts/${appId}/users/${user.uid}/entries`),
-                                        (snapshot) => {
+                                    const unsubscribe = firebase.firestore()
+                                        .collection(`artifacts/${appId}/users/${user.uid}/entries`)
+                                        .onSnapshot((snapshot) => {
                                             const entriesData = snapshot.docs.map(doc => ({ 
                                                 id: doc.id, 
                                                 ...doc.data() 
@@ -1729,7 +1684,7 @@
                                         });
                                 } else {
                                     console.log('Fazendo login anônimo...');
-                                    await window.firebaseFunctions.signInAnonymously();
+                                    await firebase.auth().signInAnonymously();
                                 }
                             } catch (err) {
                                 console.error('Erro na autenticação:', err);
