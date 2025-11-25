@@ -10,10 +10,49 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase SDK MODULAR (v9+) -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, where, query, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA3LAlM2U_NRvKZj4pSuofVRj2ttZaKfhQ",
+            authDomain: "controle-1b238.firebaseapp.com",
+            projectId: "controle-1b238",
+            storageBucket: "controle-1b238.firebasestorage.app",
+            messagingSenderId: "636394367698",
+            appId: "1:636394367698:web:901bb30c91c46b936a9b0b"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Exportar para escopo global
+        window.firebaseModules = {
+            db,
+            auth,
+            firestore: {
+                collection,
+                addDoc,
+                updateDoc,
+                deleteDoc,
+                doc,
+                onSnapshot,
+                where,
+                query,
+                serverTimestamp
+            },
+            authFunctions: {
+                signInAnonymously,
+                onAuthStateChanged
+            }
+        };
+        
+        console.log('✅ Firebase SDK Modular carregado!');
+    </script>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -46,24 +85,6 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
-
-        // --- CONFIGURAÇÃO FIREBASE ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyA3LAlM2U_NRvKZj4pSuofVRj2ttZaKfhQ",
-            authDomain: "controle-1b238.firebaseapp.com",
-            projectId: "controle-1b238",
-            storageBucket: "controle-1b238.firebasestorage.app",
-            messagingSenderId: "636394367698",
-            appId: "1:636394367698:web:901bb30c91c46b936a9b0b"
-        };
-
-        // Inicializar Firebase
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-
-        const db = firebase.firestore();
-        const auth = firebase.auth();
 
         // --- FUNÇÕES UTILITÁRIAS ---
         const safeFloat = (val) => { 
@@ -536,18 +557,27 @@
                 };
                 
                 try {
+                    if (!window.firebaseModules) {
+                        throw new Error('Firebase não carregou ainda');
+                    }
+
+                    const { addDoc, updateDoc, doc, collection, serverTimestamp } = window.firebaseModules.firestore;
+                    const { db } = window.firebaseModules;
+
                     if (editingId) {
-                        await db.collection('financas').doc(editingId).update(payload);
+                        await updateDoc(doc(db, 'financas', editingId), payload);
+                        console.log('✅ Atualizado no Firebase!');
                     } else {
-                        await db.collection('financas').add({
+                        await addDoc(collection(db, 'financas'), {
                             ...payload,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            timestamp: serverTimestamp()
                         });
+                        console.log('✅ Salvo no Firebase!');
                     }
                     setForm(initialForm);
                     setEditingId(null);
                 } catch(err) { 
-                    console.error('Erro ao salvar:', err);
+                    console.error('❌ Erro ao salvar:', err);
                     alert('Erro ao salvar: ' + err.message);
                 }
             };
@@ -555,9 +585,12 @@
             const remove = async (id) => { 
                 if (confirm('Tem certeza que deseja apagar este item?')) {
                     try {
-                        await db.collection('financas').doc(id).delete();
-                    console.log('✅ Item excluído!');
-                    alert('Item excluído com sucesso!');
+                        const { deleteDoc, doc } = window.firebaseModules.firestore;
+                        const { db } = window.firebaseModules;
+                        
+                        await deleteDoc(doc(db, 'financas', id));
+                        console.log('✅ Item excluído do Firebase!');
+                        alert('Item excluído com sucesso!');
                     } catch (err) {
                         console.error('Erro ao excluir:', err);
                         alert('Erro ao excluir item: ' + err.message);
@@ -858,27 +891,42 @@
                     try {
                         console.log('🚀 Iniciando Firebase...');
                         
-                        const userCredential = await auth.signInAnonymously();
+                        // Aguardar Firebase carregar
+                        if (!window.firebaseModules) {
+                            setTimeout(initializeFirebase, 100);
+                            return;
+                        }
+
+                        const { auth, authFunctions, db, firestore } = window.firebaseModules;
+                        const { signInAnonymously, onAuthStateChanged } = authFunctions;
+                        const { collection, query, where, onSnapshot } = firestore;
+
+                        // Autenticação
+                        const userCredential = await signInAnonymously(auth);
                         const user = userCredential.user;
                         setUserId(user.uid);
                         console.log('✅ Usuário autenticado:', user.uid);
 
-                        const unsubscribe = db.collection('financas')
-                            .where('userId', '==', user.uid)
-                            .onSnapshot((snapshot) => {
-                                const entriesData = snapshot.docs.map(doc => ({ 
-                                    id: doc.id, 
-                                    ...doc.data() 
-                                }));
-                                console.log('📊 Dados carregados:', entriesData.length, 'registros');
-                                setEntries(entriesData);
-                                setLoading(false);
-                                setError(null);
-                            }, (err) => {
-                                console.error('❌ Erro no Firestore:', err);
-                                setError('Erro ao carregar dados: ' + err.message);
-                                setLoading(false);
-                            });
+                        // Escutar mudanças no Firestore
+                        const q = query(
+                            collection(db, 'financas'),
+                            where('userId', '==', user.uid)
+                        );
+
+                        const unsubscribe = onSnapshot(q, (snapshot) => {
+                            const entriesData = snapshot.docs.map(doc => ({ 
+                                id: doc.id, 
+                                ...doc.data() 
+                            }));
+                            console.log('📊 Dados carregados do Firebase:', entriesData.length, 'registros');
+                            setEntries(entriesData);
+                            setLoading(false);
+                            setError(null);
+                        }, (err) => {
+                            console.error('❌ Erro no Firestore:', err);
+                            setError('Erro ao carregar dados: ' + err.message);
+                            setLoading(false);
+                        });
 
                         return unsubscribe;
 
