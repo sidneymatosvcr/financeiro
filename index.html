@@ -78,14 +78,14 @@
             Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
             Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
             TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
-            Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+            History: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
         };
 
         const CATEGORIAS_ENTRADA = ["Salário", "Aluguel Casa", "Aluguel Kitnet", "Freelance", "Investimentos", "Outras Entradas"];
         const CATEGORIAS_SAIDA = ["Água", "Luz", "Internet", "Cartão Nubank", "Cartão Banco do Brasil", "Outros Parcelamentos", "Empréstimos", "Seguro do Carro", "Telefone Vivo", "Lazer", "Mercado", "Farmácia", "Combustível", "Outras Despesas"];
 
-        // --- COMPONENTES UI ATUALIZADOS ---
-        
+        // --- COMPONENTES UI ---
         const CardCircular = ({ titulo, valor, Icone, gradient, subtitulo }) => (
             <div className={`
                 relative group
@@ -300,7 +300,37 @@
             const [novoItem, setNovoItem] = useState({ tipo: 'saida', categoria: '', valor: '', data: '', descricao: '', observacao: '' });
             const [dadosCartao, setDadosCartao] = useState({ cardNome: 'Cartão Nubank', valorTotal: '', parcelas: 1, dataCompra: '', descricao: '', observacao: '' });
 
-            // Cálculos CORRIGIDOS
+            // Cálculo do SALDO ACUMULADO (sobra dos meses anteriores)
+            const saldoAcumulado = useMemo(() => {
+                let saldoTotal = 0;
+                
+                // Percorre todos os meses ANTES do mês selecionado
+                for (let ano = 2023; ano <= anoSelecionado; ano++) {
+                    const mesInicial = ano === 2023 ? 0 : 0;
+                    const mesFinal = ano === anoSelecionado ? mesSelecionado - 1 : 11;
+                    
+                    for (let mes = mesInicial; mes <= mesFinal; mes++) {
+                        const transacoesMes = transacoes.filter(t => {
+                            const d = new Date(t.data + 'T12:00:00');
+                            return d.getMonth() === mes && d.getFullYear() === ano;
+                        });
+
+                        const entradasConfirmadas = transacoesMes
+                            .filter(t => t.tipo === 'entrada' && t.pago)
+                            .reduce((acc, c) => acc + Number(c.valor), 0);
+
+                        const saidasConfirmadas = transacoesMes
+                            .filter(t => t.tipo === 'saida' && t.pago)
+                            .reduce((acc, c) => acc + Number(c.valor), 0);
+
+                        saldoTotal += (entradasConfirmadas - saidasConfirmadas);
+                    }
+                }
+                
+                return saldoTotal;
+            }, [transacoes, mesSelecionado, anoSelecionado]);
+
+            // Cálculos do MÊS ATUAL
             const dadosFiltrados = useMemo(() => {
                 return transacoes.filter(t => {
                     const d = new Date(t.data + 'T12:00:00');
@@ -308,42 +338,39 @@
                 });
             }, [transacoes, mesSelecionado, anoSelecionado]);
 
-            const resumo = useMemo(() => {
-                // ENTRADAS: Todas as entradas do mês (confirmadas + pendentes)
+            const resumoMesAtual = useMemo(() => {
                 const entradasTotais = dadosFiltrados
                     .filter(t => t.tipo === 'entrada')
                     .reduce((acc, c) => acc + Number(c.valor), 0);
                 
-                // Entradas CONFIRMADAS (que já foram recebidas)
                 const entradasConfirmadas = dadosFiltrados
                     .filter(t => t.tipo === 'entrada' && t.pago)
                     .reduce((acc, c) => acc + Number(c.valor), 0);
                 
-                // SAÍDAS: Todas as saídas do mês (pagas + pendentes)
                 const saidasTotais = dadosFiltrados
                     .filter(t => t.tipo === 'saida')
                     .reduce((acc, c) => acc + Number(c.valor), 0);
                 
-                // Saídas CONFIRMADAS (que já foram pagas)
                 const saidasConfirmadas = dadosFiltrados
                     .filter(t => t.tipo === 'saida' && t.pago)
                     .reduce((acc, c) => acc + Number(c.valor), 0);
 
-                // SALDO DISPONÍVEL: Apenas entradas confirmadas - saídas confirmadas
-                const saldoDisponivel = entradasConfirmadas - saidasConfirmadas;
+                const saldoMesAtual = entradasConfirmadas - saidasConfirmadas;
+                const saldoTotal = saldoAcumulado + saldoMesAtual;
 
                 return { 
-                    entradasTotais,           // Todas as entradas
-                    entradasConfirmadas,      // Apenas entradas recebidas
+                    entradasTotais,
+                    entradasConfirmadas,
                     entradasPendentes: entradasTotais - entradasConfirmadas,
                     
-                    saidasTotais,             // Todas as saídas
-                    saidasConfirmadas,        // Apenas saídas pagas
+                    saidasTotais,
+                    saidasConfirmadas,
                     saidasPendentes: saidasTotais - saidasConfirmadas,
                     
-                    saldoDisponivel           // Dinheiro REALMENTE disponível
+                    saldoMesAtual,
+                    saldoTotal
                 };
-            }, [dadosFiltrados]);
+            }, [dadosFiltrados, saldoAcumulado]);
 
             const previsaoSemestral = useMemo(() => {
                 const hoje = new Date();
@@ -380,8 +407,6 @@
                 e.preventDefault();
                 if (!novoItem.valor || !novoItem.categoria || !novoItem.data) return;
                 
-                // Para entradas, começa como NÃO confirmado (pago = false)
-                // Para saídas, começa como NÃO pago (pago = false)
                 const pagoInicial = false;
                 
                 const transacao = { 
@@ -418,7 +443,7 @@
                         data: d.toISOString().split('T')[0],
                         descricao: `${dadosCartao.descricao} (${i+1}/${dadosCartao.parcelas})`,
                         observacao: dadosCartao.observacao, 
-                        pago: false, // Começa como não pago
+                        pago: false,
                         criadoEm: new Date().toISOString()
                     };
                     
@@ -454,80 +479,113 @@
                         </div>
                     )}
                     
-                    {/* Painel Circular Dashboard CORRIGIDO */}
+                    {/* Saldo Acumulado */}
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl shadow-xl p-6 text-white">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+                                    <Icons.History />
+                                    Saldo Acumulado
+                                </h3>
+                                <p className="text-indigo-100">Soma de todos os meses anteriores</p>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-3xl font-bold">
+                                    {saldoAcumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                </div>
+                                <div className="text-indigo-200 text-sm">
+                                    Até {new Date(anoSelecionado, mesSelecionado - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Painel Circular Dashboard */}
                     <div className="flex flex-col md:flex-row justify-center items-center gap-8 md:gap-12 py-6">
                         {/* Entradas Totais */}
                         <CardCircular 
                             titulo="Entradas Totais" 
-                            valor={resumo.entradasTotais} 
+                            valor={resumoMesAtual.entradasTotais} 
                             Icone={Icons.ArrowUp} 
                             gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
-                            subtitulo={`${resumo.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebidas`}
+                            subtitulo={`${resumoMesAtual.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebidas`}
                         />
                         
-                        {/* Saldo Disponível - APENAS valores confirmados */}
+                        {/* Saldo Total (Acumulado + Mês Atual) */}
                         <div className="transform scale-110 z-10">
                             <CardCircular 
-                                titulo="Saldo Disponível" 
-                                valor={resumo.saldoDisponivel} 
+                                titulo="Saldo Total" 
+                                valor={resumoMesAtual.saldoTotal} 
                                 Icone={Icons.Wallet} 
-                                gradient={resumo.saldoDisponivel >= 0 ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-red-600 to-orange-700"}
-                                subtitulo="Valores recebidos - despesas pagas" 
+                                gradient={resumoMesAtual.saldoTotal >= 0 ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-red-600 to-orange-700"}
+                                subtitulo="Acumulado + Este mês" 
                             />
                         </div>
 
                         {/* Saídas Totais */}
                         <CardCircular 
                             titulo="Saídas Totais" 
-                            valor={resumo.saidasTotais} 
+                            valor={resumoMesAtual.saidasTotais} 
                             Icone={Icons.ArrowDown} 
                             gradient="bg-gradient-to-br from-rose-500 to-red-600"
-                            subtitulo={`${resumo.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} pagas`}
+                            subtitulo={`${resumoMesAtual.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} pagas`}
                         />
                     </div>
 
                     {/* Dashboard de Status */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Status Entradas */}
+                        {/* Status Mês Atual */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                             <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                                <span className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Icons.ArrowUp/></span>
-                                Status das Entradas
+                                <span className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Icons.Calendar/></span>
+                                {new Date(anoSelecionado, mesSelecionado).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}
                             </h3>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
-                                    <span className="text-emerald-700 font-medium">Recebidas (no saldo)</span>
-                                    <span className="text-emerald-600 font-bold">{resumo.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                    <span className="text-emerald-700 font-medium">Entradas Recebidas</span>
+                                    <span className="text-emerald-600 font-bold">{resumoMesAtual.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
-                                    <span className="text-amber-700 font-medium">Pendentes (a receber)</span>
-                                    <span className="text-amber-600 font-bold">{resumo.entradasPendentes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <div className="flex justify-between items-center p-3 bg-rose-50 rounded-lg">
+                                    <span className="text-rose-700 font-medium">Saídas Pagas</span>
+                                    <span className="text-rose-600 font-bold">{resumoMesAtual.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                                    <span className="text-slate-700 font-medium">Total Previsto</span>
-                                    <span className="text-slate-600 font-bold">{resumo.entradasTotais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
+                                    <span className="text-blue-700 font-medium">Saldo do Mês</span>
+                                    <span className="text-blue-600 font-bold">{resumoMesAtual.saldoMesAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Status Saídas */}
+                        {/* Status Geral */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                             <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                                <span className="p-2 bg-rose-100 text-rose-600 rounded-lg"><Icons.ArrowDown/></span>
-                                Status das Saídas
+                                <span className="p-2 bg-purple-100 text-purple-600 rounded-lg"><Icons.History/></span>
+                                Visão Geral Acumulada
                             </h3>
                             <div className="space-y-3">
+                                <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg">
+                                    <span className="text-indigo-700 font-medium">Saldo Anterior</span>
+                                    <span className="text-indigo-600 font-bold">{saldoAcumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
+                                    <span className="text-emerald-700 font-medium">+ Entradas Mês</span>
+                                    <span className="text-emerald-600 font-bold">{resumoMesAtual.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                </div>
                                 <div className="flex justify-between items-center p-3 bg-rose-50 rounded-lg">
-                                    <span className="text-rose-700 font-medium">Pagas (no saldo)</span>
-                                    <span className="text-rose-600 font-bold">{resumo.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                    <span className="text-rose-700 font-medium">- Saídas Mês</span>
+                                    <span className="text-rose-600 font-bold">{resumoMesAtual.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
-                                    <span className="text-amber-700 font-medium">Pendentes (a pagar)</span>
-                                    <span className="text-amber-600 font-bold">{resumo.saidasPendentes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                                </div>
-                                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                                    <span className="text-slate-700 font-medium">Total Previsto</span>
-                                    <span className="text-slate-600 font-bold">{resumo.saidasTotais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <div className={`flex justify-between items-center p-3 rounded-lg border-2 ${
+                                    resumoMesAtual.saldoTotal >= 0 
+                                        ? 'bg-emerald-50 border-emerald-200' 
+                                        : 'bg-red-50 border-red-200'
+                                }`}>
+                                    <span className={`font-medium ${resumoMesAtual.saldoTotal >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                                        Saldo Total
+                                    </span>
+                                    <span className={`font-bold ${resumoMesAtual.saldoTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                        {resumoMesAtual.saldoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -574,6 +632,8 @@
                     </div>
                 </div>
             );
+
+            // ... (restante do código dos forms permanece igual)
 
             const renderForm = (tipo) => (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 fade-in">
