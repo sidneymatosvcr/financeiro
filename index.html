@@ -1,1777 +1,753 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Finanças - Dashboard Profissional</title>
-
+    <title>FinançasPro - Gestão Premium</title>
+    
     <!-- React e ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Firebase SDK v9+ (compatibilidade) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
+    
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDO06nr7AbOisEVS3BTl0qq0ofKqaHAB_w",
+            authDomain: "planejamento-c8a35.firebaseapp.com",
+            projectId: "planejamento-c8a35",
+            storageBucket: "planejamento-c8a35.firebasestorage.app",
+            messagingSenderId: "758113336944",
+            appId: "1:758113336944:web:3b49e4160e2d387b6cbeb5"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Disponibilizar Firebase globalmente
+        window.firebase = { db, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot };
+    </script>
+
     <style>
-        .loading-spinner {
-            border: 4px solid #f3f4f6;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 48px;
-            height: 48px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-        }
-
-        .progress-ring {
-            transform: rotate(-90deg);
-        }
-
-        .progress-ring-bg {
-            fill: none;
-            stroke: #e5e7eb;
-            stroke-width: 8;
-        }
-
-        .progress-ring-fill {
-            fill: none;
-            stroke: #10b981;
-            stroke-width: 8;
-            stroke-linecap: round;
-            transition: stroke-dashoffset 0.5s ease;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Glassmorphism & Gradients */
+        .card-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .gradient-text { -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-
-<body class="bg-gray-50">
+<body>
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- CONFIGURAÇÃO FIREBASE ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyA3LAlM2U_NRvKZj4pSuofVRj2ttZaKfhQ",
-            authDomain: "controle-1b238.firebaseapp.com",
-            projectId: "controle-1b238",
-            storageBucket: "controle-1b238.firebasestorage.app",
-            messagingSenderId: "636394367698",
-            appId: "1:636394367698:web:901bb30c91c46b936a9b0b"
+        // --- ÍCONES ---
+        const Icons = {
+            Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>,
+            ArrowUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>,
+            ArrowDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
+            Wallet: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>,
+            CreditCard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>,
+            Alert: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>,
+            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
+            Menu: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
+            X: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+            PieChart: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+            Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+            TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         };
 
-        const appId = 'financas-app';
+        const CATEGORIAS_ENTRADA = ["Salário", "Aluguel Casa", "Aluguel Kitnet", "Freelance", "Investimentos", "Outras Entradas"];
+        const CATEGORIAS_SAIDA = ["Água", "Luz", "Internet", "Cartão Nubank", "Cartão Banco do Brasil", "Outros Parcelamentos", "Empréstimos", "Seguro do Carro", "Telefone Vivo", "Lazer", "Mercado", "Farmácia", "Combustível", "Outras Despesas"];
 
-        // --- FUNÇÕES UTILITÁRIAS ---
-        const safeFloat = (val) => {
-            const p = parseFloat(val);
-            return isNaN(p) ? 0 : p;
+        // --- COMPONENTES UI ATUALIZADOS ---
+        
+        // NOVO: Card Circular Estilo Dashboard
+        const CardCircular = ({ titulo, valor, Icone, gradient, subtitulo }) => (
+            <div className={`
+                relative group
+                w-48 h-48 lg:w-56 lg:h-56
+                rounded-full shadow-2xl 
+                flex flex-col justify-center items-center text-center 
+                ${gradient}
+                border-4 border-white/20
+                transform transition-all duration-300 hover:scale-105
+            `}>
+                <div className="absolute inset-0 rounded-full border border-white/10 scale-90 group-hover:scale-100 transition-transform"></div>
+                <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm mb-2 shadow-inner">
+                    <Icone />
+                </div>
+                <p className="text-blue-50 text-xs lg:text-sm font-semibold uppercase tracking-wider mb-1 opacity-90">{titulo}</p>
+                <h3 className="text-xl lg:text-2xl font-bold tracking-tight px-2 text-white drop-shadow-md">
+                    {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </h3>
+                {subtitulo && <span className="absolute bottom-6 text-[10px] font-medium bg-black/20 px-3 py-1 rounded-full text-white/90">{subtitulo}</span>}
+            </div>
+        );
+
+        const CardGradient = ({ titulo, valor, Icone, gradient, subtitulo }) => (
+            <div className={`p-6 rounded-2xl shadow-lg text-white transform transition-all hover:-translate-y-1 hover:shadow-xl ${gradient}`}>
+                <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <Icone />
+                    </div>
+                    {subtitulo && <span className="text-xs font-medium bg-black/20 px-2 py-1 rounded-full">{subtitulo}</span>}
+                </div>
+                <div>
+                    <p className="text-blue-100 text-sm font-medium mb-1 opacity-90">{titulo}</p>
+                    <h3 className="text-3xl font-bold tracking-tight">
+                        {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </h3>
+                </div>
+            </div>
+        );
+
+        const Botao = ({ children, onClick, variant = 'primary', className = '' }) => {
+            const baseStyle = "px-4 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 justify-center shadow-md active:scale-95";
+            const variants = {
+                primary: "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-blue-500/30",
+                danger: "bg-gradient-to-r from-red-500 to-rose-600 text-white hover:shadow-red-500/30",
+                success: "bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-emerald-500/30",
+                purple: "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:shadow-purple-500/30"
+            };
+            return <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`}>{children}</button>;
         };
 
-        const safeInt = (val) => {
-            const p = parseInt(val);
-            return isNaN(p) ? 0 : p;
-        };
-
-        const formatCurrency = (v) => {
-            try {
-                return new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                }).format(safeFloat(v));
-            } catch {
-                return 'R$ 0,00';
-            }
-        };
-
-        const safeDate = (d) => {
-            if (!d) return new Date();
-            try {
-                const date = new Date(d);
-                return isNaN(date.getTime()) ? new Date() : date;
-            } catch {
-                return new Date();
-            }
-        };
-
-        const formatDate = (d) => {
-            try {
-                return safeDate(d).toLocaleDateString('pt-BR');
-            } catch (e) {
-                return '--/--/--';
-            }
-        };
-
-        const getDaysUntil = (d) => {
-            if (!d) return 999;
-            const n = new Date();
-            const t = safeDate(d);
-            n.setHours(0, 0, 0, 0);
-            t.setHours(0, 0, 0, 0);
-            return Math.ceil((t - n) / (86400000));
-        };
-
-        // --- COMPONENTE GRÁFICO PIZZA ---
-        const PieChart = ({ data, colors, darkMode }) => {
-            const canvasRef = useRef(null);
+        // --- GRÁFICOS ---
+        const GraficoPizza = ({ dados }) => {
             const chartRef = useRef(null);
+            const canvasRef = useRef(null);
 
             useEffect(() => {
-                if (!canvasRef.current || !data || data.length === 0) return;
-
-                if (chartRef.current) {
-                    chartRef.current.destroy();
-                }
+                if (!canvasRef.current || dados.length === 0) return;
+                if (chartRef.current) chartRef.current.destroy();
 
                 const ctx = canvasRef.current.getContext('2d');
                 chartRef.current = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
-                        labels: data.map(item => item.label),
+                        labels: dados.map(d => d.name),
                         datasets: [{
-                            data: data.map(item => item.value),
-                            backgroundColor: colors,
-                            borderColor: darkMode ? '#374151' : '#ffffff',
-                            borderWidth: 2,
-                            hoverOffset: 8
+                            data: dados.map(d => d.value),
+                            backgroundColor: [
+                                '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#10b981', '#06b6d4'
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 4
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: darkMode ? '#d1d5db' : '#374151',
-                                    font: {
-                                        size: 12
-                                    },
-                                    padding: 15
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        const label = context.label || '';
-                                        const value = context.raw || 0;
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = Math.round((value / total) * 100);
-                                        return `${label}: ${formatCurrency(value)} (${percentage}%)`;
-                                    }
-                                }
-                            }
+                            legend: { position: 'right', labels: { usePointStyle: true, padding: 20, font: { family: 'Inter', size: 11 } } },
+                            tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12, cornerRadius: 8 }
                         },
-                        cutout: '65%'
+                        cutout: '75%'
                     }
                 });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [dados]);
 
-                return () => {
-                    if (chartRef.current) {
-                        chartRef.current.destroy();
-                    }
-                };
-            }, [data, colors, darkMode]);
-
-            if (!data || data.length === 0) {
-                return (
-                    <div className="chart-container flex items-center justify-center">
-                        <p className="text-gray-500 dark:text-gray-400">Sem dados para exibir</p>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="chart-container">
-                    <canvas ref={canvasRef} />
-                </div>
-            );
+            if (dados.length === 0) return <div className="h-64 flex items-center justify-center text-gray-400 font-medium">Sem dados para este período</div>;
+            return <div className="h-64 w-full"><canvas ref={canvasRef}></canvas></div>;
         };
 
-        // --- COMPONENTE GRÁFICO BARRAS ---
-        const BarChart = ({ data, color, darkMode }) => {
-            const canvasRef = useRef(null);
+        const GraficoBarras = ({ dados }) => {
             const chartRef = useRef(null);
+            const canvasRef = useRef(null);
 
             useEffect(() => {
-                if (!canvasRef.current || !data || data.length === 0) return;
-
-                if (chartRef.current) {
-                    chartRef.current.destroy();
-                }
+                if (!canvasRef.current || dados.length === 0) return;
+                if (chartRef.current) chartRef.current.destroy();
 
                 const ctx = canvasRef.current.getContext('2d');
+                
+                // Gradiente para as barras
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(99, 102, 241, 0.8)');
+                gradient.addColorStop(1, 'rgba(168, 85, 247, 0.8)');
+
                 chartRef.current = new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: data.map(item => item.label),
+                        labels: dados.map(d => d.mes),
                         datasets: [{
-                            label: 'Valores',
-                            data: data.map(item => item.value),
-                            backgroundColor: color,
-                            borderColor: color,
-                            borderWidth: 1,
+                            label: 'Despesas Provisionadas',
+                            data: dados.map(d => d.valor),
+                            backgroundColor: gradient,
                             borderRadius: 6,
-                            borderSkipped: false,
+                            barThickness: 30
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        return formatCurrency(context.raw);
-                                    }
-                                }
+                            legend: { display: false },
+                            tooltip: { 
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                callbacks: { label: (c) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(c.raw) }
                             }
                         },
                         scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: darkMode ? '#374151' : '#e5e7eb'
-                                },
-                                ticks: {
-                                    color: darkMode ? '#9ca3af' : '#6b7280',
-                                    callback: function (value) {
-                                        if (value >= 1000) {
-                                            return 'R$ ' + (value / 1000).toFixed(0) + 'k';
-                                        }
-                                        return formatCurrency(value);
-                                    }
-                                }
-                            },
-                            x: {
-                                grid: {
-                                    display: false
-                                },
-                                ticks: {
-                                    color: darkMode ? '#9ca3af' : '#6b7280'
-                                }
-                            }
+                            y: { grid: { borderDash: [4, 4], color: '#e2e8f0' }, border: { display: false } },
+                            x: { grid: { display: false }, border: { display: false } }
                         }
                     }
                 });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [dados]);
 
-                return () => {
-                    if (chartRef.current) {
-                        chartRef.current.destroy();
-                    }
-                };
-            }, [data, color, darkMode]);
-
-            if (!data || data.length === 0) {
-                return (
-                    <div className="chart-container flex items-center justify-center">
-                        <p className="text-gray-500 dark:text-gray-400">Sem dados para exibir</p>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="chart-container">
-                    <canvas ref={canvasRef} />
-                </div>
-            );
+            return <div className="h-64 w-full"><canvas ref={canvasRef}></canvas></div>;
         };
 
-        // --- COMPONENTE PROGRESSO CIRCULAR ---
-        const CircularProgress = ({ value, max, color, label, darkMode }) => {
-            const radius = 60;
-            const circumference = 2 * Math.PI * radius;
-            const progress = max > 0 ? (value / max) * circumference : 0;
-            const strokeDashoffset = circumference - progress;
+        // --- FUNÇÕES FIREBASE ---
+        const useFirebaseTransacoes = () => {
+            const [transacoes, setTransacoes] = useState([]);
+            const [carregando, setCarregando] = useState(true);
 
-            const getColorClass = (color) => {
-                const colors = {
-                    primary: 'stroke-sky-500',
-                    success: 'stroke-emerald-500',
-                    danger: 'stroke-red-500',
-                    warning: 'stroke-orange-500'
-                };
-                return colors[color] || colors.primary;
-            };
-
-            return (
-                <div className="flex flex-col items-center">
-                    <div className="relative">
-                        <svg width="140" height="140" className="progress-ring">
-                            <circle
-                                className="progress-ring-bg"
-                                strokeWidth="8"
-                                stroke={darkMode ? '#374151' : '#e5e7eb'}
-                                fill="transparent"
-                                r={radius}
-                                cx="70"
-                                cy="70"
-                            />
-                            <circle
-                                className={`progress-ring-fill ${getColorClass(color)}`}
-                                strokeWidth="8"
-                                fill="transparent"
-                                r={radius}
-                                cx="70"
-                                cy="70"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={strokeDashoffset}
-                            />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {max > 0 ? Math.round((value / max) * 100) : 0}%
-                            </span>
-                            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {label}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="mt-2 text-center">
-                        <div className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {formatCurrency(value)}
-                        </div>
-                        <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            de {formatCurrency(max)}
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- LISTAS DE CATEGORIAS ---
-        const CATEGORIAS_ENTRADAS = ["Salário", "Aluguel Casa", "Aluguel Kitnet", "Renda Extra", "Outros"];
-        const CATEGORIAS_SAIDAS = ["Aluguel", "Água", "Luz", "Internet", "Celular", "Carro", "Seguro", "Mercado", "Lazer", "Saúde"];
-
-        // --- COMPONENTE LOADING ---
-        const LoadingSpinner = () => (
-            <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="loading-spinner"></div>
-                    <p className="text-gray-600 dark:text-gray-400">Carregando suas finanças...</p>
-                </div>
-            </div>
-        );
-
-        // --- HEADER ---
-        const Header = ({ darkMode, toggleDarkMode, activeView, setActiveView, userId }) => {
-            const tabs = [
-                { id: 'dashboard', label: 'Visão Geral' },
-                { id: 'incomes', label: 'Entradas' },
-                { id: 'expenses', label: 'Saídas' },
-                { id: 'installments', label: 'Parcelas' }
-            ];
-
-            return (
-                <header className={`p-4 shadow-md sticky top-0 z-50 transition-colors ${darkMode ? 'bg-gray-900 border-b border-gray-800 text-white' : 'bg-white border-b border-gray-200 text-gray-900'
-                    }`}>
-                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-                        <h1 className="text-xl md:text-2xl font-bold text-sky-500 flex items-center gap-2">
-                            <span>📊 Dashboard Financeiro</span>
-                        </h1>
-
-                        <nav className="flex flex-wrap justify-center gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-full md:w-auto">
-                            {tabs.map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveView(tab.id)}
-                                    className={`flex-1 md:flex-none px-3 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${activeView === tab.id
-                                            ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm border border-gray-200 dark:border-gray-600'
-                                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                                        }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </nav>
-
-                        <button
-                            onClick={toggleDarkMode}
-                            className={`p-2 rounded-full transition-colors ${darkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                        >
-                            {darkMode ? '☀️' : '🌙'}
-                        </button>
-                    </div>
-                </header>
-            );
-        };
-
-        // --- FILTRO DE DATA ---
-        const DateFilterBar = ({ currentDate, setCurrentDate, darkMode }) => {
-            const changeMonth = (e) => {
-                const d = new Date(currentDate);
-                d.setMonth(parseInt(e.target.value));
-                setCurrentDate(d);
-            };
-
-            const changeYear = (e) => {
-                const d = new Date(currentDate);
-                d.setFullYear(parseInt(e.target.value));
-                setCurrentDate(d);
-            };
-
-            const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-            const years = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030];
-
-            const inputClass = `p-2 rounded-lg border font-medium cursor-pointer text-sm w-full md:w-auto transition-colors ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'
-                }`;
-
-            return (
-                <div className={`flex flex-col md:flex-row justify-between items-center gap-3 p-4 mb-6 rounded-xl shadow-sm ${darkMode ? 'bg-gray-800' : 'bg-white'
-                    }`}>
-                    <div className="flex items-center gap-3">
-                        <span className={`text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'
-                            }`}>
-                            📅 Período:
-                        </span>
-                        <div className="flex gap-2">
-                            <select value={currentDate.getMonth()} onChange={changeMonth} className={inputClass}>
-                                {months.map((m, i) => (
-                                    <option key={i} value={i}>{m}</option>
-                                ))}
-                            </select>
-                            <select value={currentDate.getFullYear()} onChange={changeYear} className={inputClass}>
-                                {years.map(y => (
-                                    <option key={y} value={y}>{y}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-                    <div className={`text-lg font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'
-                        }`}>
-                        {months[currentDate.getMonth()]} de {currentDate.getFullYear()}
-                    </div>
-                </div>
-            );
-        };
-
-        // --- CARD ---
-        const Card = ({ title, value, color, subtitle, trend, darkMode }) => {
-            const getColorClass = (color) => {
-                const colors = {
-                    primary: { text: 'text-sky-500', border: 'border-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
-                    success: { text: 'text-emerald-500', border: 'border-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-                    danger: { text: 'text-red-500', border: 'border-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
-                    warning: { text: 'text-orange-500', border: 'border-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' }
-                };
-                return colors[color] || colors.primary;
-            };
-
-            const colorClass = getColorClass(color);
-
-            return (
-                <div className={`p-6 rounded-xl shadow border-l-4 ${colorClass.border} ${colorClass.bg} ${darkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                    <h3 className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                        }`}>
-                        {title}
-                    </h3>
-                    <p className={`text-2xl md:text-3xl font-extrabold ${colorClass.text} mb-1`}>
-                        {formatCurrency(value)}
-                    </p>
-                    {subtitle && (
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {subtitle}
-                        </p>
-                    )}
-                    {trend && (
-                        <div className={`flex items-center gap-1 mt-2 text-xs ${trend > 0 ? 'text-emerald-500' : 'text-red-500'
-                            }`}>
-                            {trend > 0 ? '↗' : '↘'} {Math.abs(trend)}%
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        // --- DASHBOARD COMPLETO ---
-        const DashboardView = ({ entries, currentDate, setCurrentDate, darkMode }) => {
-            const stats = useMemo(() => {
-                const m = currentDate.getMonth();
-                const y = currentDate.getFullYear();
-
-                let saldo = 0;
-                let receitasTotais = 0;
-                let despesasTotais = 0;
-                let receitasRealizadas = 0;
-                let despesasPagas = 0;
-                let receitasPendentes = 0;
-                let despesasPendentes = 0;
-                let alertas = [];
-                let categoriasReceitas = {};
-                let categoriasDespesas = {};
-
-                entries.forEach(e => {
-                    const val = safeFloat(e.amount);
-                    const d = safeDate(e.dueDate);
-                    const isPaid = e.status === 'paid';
-                    const isCredit = e.isCreditCard && safeInt(e.totalInstallments) > 1;
-                    const isCurrentMonth = d.getMonth() === m && d.getFullYear() === y;
-
-                    if (e.type === 'Receita') {
-                        receitasTotais += val;
-                        if (isPaid) {
-                            receitasRealizadas += val;
-                            saldo += val;
-                        } else {
-                            receitasPendentes += val;
-                        }
-
-                        if (isCurrentMonth) {
-                            const categoria = e.category || 'Outras';
-                            categoriasReceitas[categoria] = (categoriasReceitas[categoria] || 0) + val;
-                        }
-
-                    } else if (e.type === 'Despesa') {
-                        despesasTotais += val;
-                        if (isPaid) {
-                            despesasPagas += val;
-                            saldo -= val;
-                        } else {
-                            despesasPendentes += val;
-                        }
-
-                        if (isCurrentMonth) {
-                            const categoria = e.category || 'Outras';
-                            categoriasDespesas[categoria] = (categoriasDespesas[categoria] || 0) + val;
-                        }
-
-                        if (!isPaid && (getDaysUntil(e.dueDate) <= 7 || e.status === 'late')) {
-                            alertas.push(e);
-                        }
-                    }
-                });
-
-                const resultadoMensal = receitasRealizadas - despesasPagas;
-                const economiaPotencial = receitasTotais - despesasTotais;
-                const percentualEconomia = receitasTotais > 0 ? (economiaPotencial / receitasTotais) * 100 : 0;
-
-                const dadosReceitas = Object.entries(categoriasReceitas)
-                    .map(([label, value]) => ({ label, value }))
-                    .sort((a, b) => b.value - a.value);
-
-                const dadosDespesas = Object.entries(categoriasDespesas)
-                    .map(([label, value]) => ({ label, value }))
-                    .sort((a, b) => b.value - a.value);
-
-                const coresGrafico = [
-                    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-                    '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#64748b'
-                ];
-
-                return {
-                    saldo,
-                    receitasTotais,
-                    despesasTotais,
-                    receitasRealizadas,
-                    despesasPagas,
-                    receitasPendentes,
-                    despesasPendentes,
-                    resultadoMensal,
-                    economiaPotencial,
-                    percentualEconomia,
-                    alertas,
-                    dadosReceitas,
-                    dadosDespesas,
-                    coresGrafico
-                };
-            }, [entries, currentDate]);
-
-            return (
-                <div className="space-y-6">
-                    <DateFilterBar currentDate={currentDate} setCurrentDate={setCurrentDate} darkMode={darkMode} />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card
-                            title="Saldo Atual"
-                            value={stats.saldo}
-                            color={stats.saldo >= 0 ? 'success' : 'danger'}
-                            subtitle="Disponível agora"
-                            darkMode={darkMode}
-                        />
-                        <Card
-                            title="Receitas do Mês"
-                            value={stats.receitasTotais}
-                            color="success"
-                            subtitle={`${formatCurrency(stats.receitasRealizadas)} realizadas`}
-                            darkMode={darkMode}
-                        />
-                        <Card
-                            title="Despesas do Mês"
-                            value={stats.despesasTotais}
-                            color="danger"
-                            subtitle={`${formatCurrency(stats.despesasPagas)} pagas`}
-                            darkMode={darkMode}
-                        />
-                        <Card
-                            title="Resultado Mensal"
-                            value={stats.resultadoMensal}
-                            color={stats.resultadoMensal >= 0 ? 'primary' : 'warning'}
-                            subtitle="Receitas - Despesas"
-                            darkMode={darkMode}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className={`p-4 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <div className="text-center">
-                                <CircularProgress
-                                    value={stats.receitasRealizadas}
-                                    max={stats.receitasTotais}
-                                    color="success"
-                                    label="Recebido"
-                                    darkMode={darkMode}
-                                />
-                            </div>
-                        </div>
-                        <div className={`p-4 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <div className="text-center">
-                                <CircularProgress
-                                    value={stats.despesasPagas}
-                                    max={stats.despesasTotais}
-                                    color="danger"
-                                    label="Pago"
-                                    darkMode={darkMode}
-                                />
-                            </div>
-                        </div>
-                        <div className={`p-4 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <div className="text-center">
-                                <div className={`text-2xl font-bold mb-2 ${stats.economiaPotencial >= 0 ? 'text-emerald-500' : 'text-red-500'
-                                    }`}>
-                                    {formatCurrency(stats.economiaPotencial)}
-                                </div>
-                                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Economia Potencial
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {stats.percentualEconomia.toFixed(1)}% da renda
-                                </div>
-                            </div>
-                        </div>
-                        <div className={`p-4 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <div className="text-center">
-                                <div className={`text-2xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'
-                                    }`}>
-                                    {stats.alertas.length}
-                                </div>
-                                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Alertas Ativos
-                                </div>
-                                <div className="text-xs text-orange-500 mt-1">
-                                    Contas próximas/atrasadas
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className={`p-6 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-lg font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'
-                                }`}>
-                                📈 Receitas por Categoria
-                            </h3>
-                            <PieChart
-                                data={stats.dadosReceitas}
-                                colors={stats.coresGrafico}
-                                darkMode={darkMode}
-                            />
-                        </div>
-
-                        <div className={`p-6 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-lg font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'
-                                }`}>
-                                📉 Despesas por Categoria
-                            </h3>
-                            <PieChart
-                                data={stats.dadosDespesas}
-                                colors={stats.coresGrafico}
-                                darkMode={darkMode}
-                            />
-                        </div>
-                    </div>
-
-                    <div className={`p-6 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                        }`}>
-                        <h3 className={`text-lg font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'
-                            }`}>
-                            ⚖️ Comparação Mensal
-                        </h3>
-                        <BarChart
-                            data={[
-                                { label: 'Receitas', value: stats.receitasTotais },
-                                { label: 'Despesas', value: stats.despesasTotais },
-                                { label: 'Realizado', value: stats.receitasRealizadas },
-                                { label: 'Pago', value: stats.despesasPagas }
-                            ]}
-                            color={darkMode ? '#3b82f6' : '#2563eb'}
-                            darkMode={darkMode}
-                        />
-                    </div>
-
-                    <div className={`p-6 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                        }`}>
-                        <h3 className="font-bold text-lg mb-4 text-orange-500 flex items-center gap-2">
-                            🔔 Alertas e Pendências
-                        </h3>
-                        {stats.alertas.length === 0 ? (
-                            <p className="text-gray-400 text-sm">🎉 Nenhuma pendência urgente este mês!</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {stats.alertas
-                                    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-                                    .map((a, i) => (
-                                        <div key={i} className={`flex justify-between items-center p-4 rounded-lg border ${darkMode ? 'border-gray-700 bg-gray-700/50' : 'border-gray-200 bg-gray-50'
-                                            }`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-3 h-3 rounded-full ${getDaysUntil(a.dueDate) < 0 ? 'bg-red-500' : 'bg-orange-500'
-                                                    }`}></div>
-                                                <div>
-                                                    <div className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'
-                                                        }`}>
-                                                        {a.description}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        Vence: {formatDate(a.dueDate)} •
-                                                        {getDaysUntil(a.dueDate) < 0
-                                                            ? ` ${Math.abs(getDaysUntil(a.dueDate))} dias atrasado`
-                                                            : ` em ${getDaysUntil(a.dueDate)} dias`
-                                                        }
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-bold text-red-500">
-                                                    {formatCurrency(a.amount)}
-                                                </div>
-                                                <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                                                    }`}>
-                                                    {a.status === 'late' ? 'Atrasado' : 'Pendente'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                }
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className={`p-6 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-lg font-bold mb-4 text-emerald-500`}>
-                                💰 Situação das Receitas
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Total Previsto:</span>
-                                    <span className="font-bold text-emerald-500">{formatCurrency(stats.receitasTotais)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Já Recebido:</span>
-                                    <span className="font-bold text-emerald-500">{formatCurrency(stats.receitasRealizadas)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>A Receber:</span>
-                                    <span className="font-bold text-orange-500">{formatCurrency(stats.receitasPendentes)}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className={`p-6 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-lg font-bold mb-4 text-red-500`}>
-                                💸 Situação das Despesas
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Total Previsto:</span>
-                                    <span className="font-bold text-red-500">{formatCurrency(stats.despesasTotais)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Já Pago:</span>
-                                    <span className="font-bold text-red-500">{formatCurrency(stats.despesasPagas)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>A Pagar:</span>
-                                    <span className="font-bold text-orange-500">{formatCurrency(stats.despesasPendentes)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- VIEW DE CADASTRO (Entradas / Saídas) ---
-        const CategoryView = ({ userId, entries, currentDate, setCurrentDate, darkMode, type, showError }) => {
-            const isIncome = type === 'Receita';
-            const suggestions = isIncome ? CATEGORIAS_ENTRADAS : CATEGORIAS_SAIDAS;
-
-            const getColorClass = () => {
-                return isIncome ? {
-                    text: 'text-emerald-500',
-                    bg: 'bg-emerald-500',
-                    hover: 'hover:bg-emerald-600',
-                    border: 'border-emerald-500'
-                } : {
-                    text: 'text-red-500',
-                    bg: 'bg-red-500',
-                    hover: 'hover:bg-red-600',
-                    border: 'border-red-500'
-                };
-            };
-
-            const [editingId, setEditingId] = useState(null);
-            const initialForm = {
-                description: '',
-                category: '',
-                amount: '',
-                registrationDate: new Date().toISOString().split('T')[0],
-                dueDate: new Date().toISOString().split('T')[0],
-                status: 'pending',
-                observation: '',
-                isCreditCard: false,
-                totalInstallments: 1,
-                paidInstallments: 0,
-                isFixed: false
-            };
-            const [form, setForm] = useState(initialForm);
-
-            const filtered = useMemo(() => {
-                return entries.filter(e => {
-                    if (e.type !== type) return false;
-                    const d = safeDate(e.dueDate);
-                    const sameMonth = d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
-                    return sameMonth || e.status === 'late';
-                }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-            }, [entries, currentDate, type]);
-
-            const totalPeriodo = filtered.reduce((acc, curr) => acc + safeFloat(curr.amount), 0);
-            const colorClass = getColorClass();
-
-            const save = async (e) => {
-                e.preventDefault();
-
-                if (!form.description.trim()) {
-                    alert('Descrição é obrigatória');
-                    return;
-                }
-                if (safeFloat(form.amount) <= 0) {
-                    alert('Valor deve ser maior que zero');
+            useEffect(() => {
+                if (!window.firebase) {
+                    console.log('Firebase não carregado ainda');
                     return;
                 }
 
-                const payload = {
-                    ...form,
-                    type,
-                    amount: safeFloat(form.amount),
-                    totalInstallments: safeInt(form.totalInstallments),
-                    paidInstallments: safeInt(form.paidInstallments),
-                    userId
-                };
-
-                try {
-                    if (editingId) {
-                        // CORREÇÃO: Usar estrutura correta do Firestore
-                        await firebase.firestore()
-                            .collection('financas')
-                            .doc(userId)
-                            .collection('entries')
-                            .doc(editingId)
-                            .update(payload);
-                    } else {
-                        // CORREÇÃO: Usar estrutura correta do Firestore
-                        await firebase.firestore()
-                            .collection('financas')
-                            .doc(userId)
-                            .collection('entries')
-                            .add({
-                                ...payload,
-                                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                    }
-                    setForm(initialForm);
-                    setEditingId(null);
-                } catch (err) {
-                    console.error('Erro ao salvar:', err);
-                    if (showError) showError(err);
-                    else alert('Erro ao salvar: ' + err.message);
-                }
-            };
-
-            const remove = async (id) => {
-                if (confirm('Tem certeza que deseja apagar este item?')) {
-                    try {
-                        // CORREÇÃO: Usar estrutura correta do Firestore
-                        await firebase.firestore()
-                            .collection('financas')
-                            .doc(userId)
-                            .collection('entries')
-                            .doc(id)
-                            .delete();
-                    } catch (err) {
-                        console.error('Erro ao excluir:', err);
-                        if (showError) showError(err);
-                        else alert('Erro ao excluir item.');
-                    }
-                }
-            };
-
-            const edit = (item) => {
-                setEditingId(item.id);
-                setForm({
-                    ...initialForm,
-                    ...item,
-                    dueDate: item.dueDate || initialForm.dueDate,
-                    registrationDate: item.registrationDate || item.dueDate || initialForm.registrationDate
+                const { db, collection, onSnapshot } = window.firebase;
+                
+                // Escutar mudanças em tempo real
+                const unsubscribe = onSnapshot(collection(db, 'transacoes'), (snapshot) => {
+                    const transacoesData = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    setTransacoes(transacoesData);
+                    setCarregando(false);
+                }, (error) => {
+                    console.error('Erro ao carregar transações:', error);
+                    setCarregando(false);
                 });
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            };
 
-            const inputClass = `w-full p-3 rounded-lg border text-sm focus:ring-2 focus:outline-none transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-sky-500' : 'bg-white border-gray-300 text-gray-900 focus:ring-sky-500'
-                }`;
+                return () => unsubscribe();
+            }, []);
 
-            const labelClass = `block text-xs font-bold mb-1 ml-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                }`;
-
-            return (
-                <div className="grid lg:grid-cols-3 gap-6">
-                    {/* FORMULÁRIO */}
-                    <div className={`p-5 rounded-xl shadow h-fit ${darkMode ? 'bg-gray-800' : 'bg-white'
-                        }`}>
-                        <h3 className={`font-bold text-lg mb-4 ${colorClass.text} flex items-center justify-between`}>
-                            {editingId ? '✏️ Editando' : `➕ Nova ${isIncome ? 'Entrada' : 'Saída'}`}
-                            {editingId && (
-                                <button
-                                    onClick={() => { setEditingId(null); setForm(initialForm); }}
-                                    className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                            )}
-                        </h3>
-
-                        <div className="mb-4">
-                            <label className={labelClass}>Sugestões:</label>
-                            <div className="flex flex-wrap gap-2">
-                                {suggestions.map(cat => (
-                                    <button
-                                        key={cat}
-                                        type="button"
-                                        onClick={() => setForm(p => ({ ...p, description: cat, category: cat }))}
-                                        className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${form.category === cat
-                                                ? `${colorClass.bg} text-white border-transparent`
-                                                : `border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700`
-                                            }`}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <form onSubmit={save} className="space-y-4">
-                            <div>
-                                <label className={labelClass}>Descrição</label>
-                                <input
-                                    type="text"
-                                    placeholder="Ex: Salário, Aluguel..."
-                                    required
-                                    value={form.description}
-                                    onChange={e => setForm({ ...form, description: e.target.value })}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className={labelClass}>Valor (R$)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        required
-                                        value={form.amount}
-                                        onChange={e => setForm({ ...form, amount: e.target.value })}
-                                        className={inputClass}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelClass}>Status</label>
-                                    <select
-                                        value={form.status}
-                                        onChange={e => setForm({ ...form, status: e.target.value })}
-                                        className={inputClass}
-                                    >
-                                        <option value="pending">Pendente</option>
-                                        <option value="paid">{isIncome ? 'Recebido' : 'Pago'}</option>
-                                        <option value="late">Atrasado</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className={labelClass}>Data Registro</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={form.registrationDate}
-                                        onChange={e => setForm({ ...form, registrationDate: e.target.value })}
-                                        className={inputClass}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelClass}>Vencimento</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={form.dueDate}
-                                        onChange={e => setForm({ ...form, dueDate: e.target.value })}
-                                        className={inputClass}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className={labelClass}>Observações</label>
-                                <textarea
-                                    rows="2"
-                                    placeholder="Detalhes opcionais..."
-                                    value={form.observation}
-                                    onChange={e => setForm({ ...form, observation: e.target.value })}
-                                    className={inputClass}
-                                ></textarea>
-                            </div>
-
-                            {!isIncome && (
-                                <div className={`space-y-3 pt-3 p-3 rounded-lg text-sm border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'
-                                    }`}>
-                                    <label className={`flex items-center gap-2 cursor-pointer ${darkMode ? 'text-gray-300' : 'text-gray-700'
-                                        }`}>
-                                        <input
-                                            type="checkbox"
-                                            checked={form.isFixed}
-                                            onChange={e => setForm({ ...form, isFixed: e.target.checked })}
-                                            className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
-                                        />
-                                        Despesa Fixa (Água, Luz...)
-                                    </label>
-                                    <label className={`flex items-center gap-2 cursor-pointer ${darkMode ? 'text-gray-300' : 'text-gray-700'
-                                        }`}>
-                                        <input
-                                            type="checkbox"
-                                            checked={form.isCreditCard}
-                                            onChange={e => setForm({ ...form, isCreditCard: e.target.checked })}
-                                            className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
-                                        />
-                                        Parcelado / Empréstimo
-                                    </label>
-
-                                    {form.isCreditCard && (
-                                        <div className="grid grid-cols-2 gap-2 mt-2">
-                                            <input
-                                                type="number"
-                                                placeholder="Total Parc."
-                                                min="1"
-                                                value={form.totalInstallments}
-                                                onChange={e => setForm({ ...form, totalInstallments: e.target.value })}
-                                                className={inputClass}
-                                            />
-                                            <input
-                                                type="number"
-                                                placeholder="Pagas"
-                                                min="0"
-                                                value={form.paidInstallments}
-                                                onChange={e => setForm({ ...form, paidInstallments: e.target.value })}
-                                                className={inputClass}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                className={`w-full py-3 rounded-lg font-bold text-white ${colorClass.bg} ${colorClass.hover} shadow-md transform active:scale-95 transition-all`}
-                            >
-                                {editingId ? 'Salvar Alterações' : 'Adicionar'}
-                            </button>
-                        </form>
-                    </div>
-
-                    {/* LISTAGEM */}
-                    <div className="lg:col-span-2 space-y-4">
-                        <DateFilterBar currentDate={currentDate} setCurrentDate={setCurrentDate} darkMode={darkMode} />
-
-                        <div className={`p-4 rounded-xl shadow flex justify-between items-center ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'
-                            }`}>
-                            <span className="font-bold text-sm md:text-base">Total no Período:</span>
-                            <span className={`text-xl md:text-2xl font-extrabold ${colorClass.text}`}>
-                                {formatCurrency(totalPeriodo)}
-                            </span>
-                        </div>
-
-                        <div className={`rounded-xl shadow overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            {filtered.length === 0 ? (
-                                <div className="p-8 text-center opacity-50 text-sm">
-                                    Nenhum registro encontrado neste mês.
-                                </div>
-                            ) : (
-                                <div className="flex flex-col">
-                                    {filtered.map(item => (
-                                        <div
-                                            key={item.id}
-                                            className={`p-4 border-b last:border-0 hover:bg-black/5 transition-colors ${darkMode ? 'border-gray-700 hover:bg-white/5' : 'border-gray-100'
-                                                }`}
-                                        >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
-                                                    <div className={`font-bold text-base ${darkMode ? 'text-gray-200' : 'text-gray-800'
-                                                        }`}>
-                                                        {item.description}
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-1 mt-1">
-                                                        {item.isFixed && (
-                                                            <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">
-                                                                FIXA
-                                                            </span>
-                                                        )}
-                                                        {item.isCreditCard && (
-                                                            <span className="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded font-bold">
-                                                                PARC {item.paidInstallments}/{item.totalInstallments}
-                                                            </span>
-                                                        )}
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${item.status === 'paid'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : item.status === 'late'
-                                                                    ? 'bg-red-100 text-red-800'
-                                                                    : 'bg-yellow-100 text-yellow-800'
-                                                            }`}>
-                                                            {item.status === 'paid'
-                                                                ? (isIncome ? 'RECEBIDO' : 'PAGO')
-                                                                : item.status === 'late'
-                                                                    ? 'ATRASADO'
-                                                                    : 'PENDENTE'
-                                                            }
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className={`text-lg font-bold ${colorClass.text} whitespace-nowrap`}>
-                                                    {formatCurrency(item.amount)}
-                                                </div>
-                                            </div>
-
-                                            <div className={`text-xs grid grid-cols-1 sm:grid-cols-2 gap-1 mt-2 p-2 rounded ${darkMode ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-500'
-                                                }`}>
-                                                <div>
-                                                    📅 <span className="font-semibold">Registro:</span> {formatDate(item.registrationDate)}
-                                                </div>
-                                                <div>
-                                                    ⏳ <span className="font-semibold">Vencimento:</span> {formatDate(item.dueDate)}
-                                                </div>
-                                                {item.observation && (
-                                                    <div className="sm:col-span-2 mt-1 italic">
-                                                        📝 {item.observation}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="flex justify-end gap-3 mt-3">
-                                                <button
-                                                    onClick={() => edit(item)}
-                                                    className="text-sm text-blue-500 hover:text-blue-700 font-semibold flex items-center gap-1 transition-colors"
-                                                >
-                                                    ✏️ Editar
-                                                </button>
-                                                <button
-                                                    onClick={() => remove(item.id)}
-                                                    className="text-sm text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 transition-colors"
-                                                >
-                                                    🗑️ Excluir
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- PARCELAS COM SISTEMA DE QUITAÇÃO ---
-        const InstallmentsView = ({ entries, darkMode, userId, showError }) => {
-            const [payingInstallment, setPayingInstallment] = useState(null);
-
-            const { list, groupedByParent } = useMemo(() => {
-                let l = [];
-                let grouped = {};
-
-                entries
-                    .filter(e => e.isCreditCard && safeInt(e.totalInstallments) > 1)
-                    .forEach(e => {
-                        const val = safeFloat(e.amount) / safeInt(e.totalInstallments);
-                        const total = safeInt(e.totalInstallments);
-                        const paid = safeInt(e.paidInstallments);
-
-                        grouped[e.id] = {
-                            parent: e,
-                            installments: []
-                        };
-
-                        for (let i = 0; i < total; i++) {
-                            const d = new Date(safeDate(e.dueDate));
-                            d.setMonth(d.getMonth() + i);
-
-                            const installment = {
-                                uniqueId: `${e.id}_${i}`,
-                                parentId: e.id,
-                                description: e.description,
-                                current: i + 1,
-                                total,
-                                amount: val,
-                                dueDate: d,
-                                isPaid: i < paid,
-                                status: i < paid ? 'paid' : (d < new Date() ? 'late' : 'pending')
-                            };
-
-                            l.push(installment);
-                            grouped[e.id].installments.push(installment);
-                        }
-                    });
-
-                return {
-                    list: l.sort((a, b) => a.dueDate - b.dueDate),
-                    groupedByParent: grouped
-                };
-            }, [entries]);
-
-            const totalPendente = list.filter(i => !i.isPaid).reduce((acc, curr) => acc + safeFloat(curr.amount), 0);
-            const totalQuitado = list.filter(i => i.isPaid).reduce((acc, curr) => acc + safeFloat(curr.amount), 0);
-            const parcelasPendentes = list.filter(i => !i.isPaid).length;
-            const parcelasQuitadas = list.filter(i => i.isPaid).length;
-
-            const payInstallment = async (installment) => {
-                setPayingInstallment(installment.uniqueId);
+            const adicionarTransacao = async (transacao) => {
+                if (!window.firebase) {
+                    console.error('Firebase não disponível');
+                    return false;
+                }
 
                 try {
-                    const parentEntry = entries.find(e => e.id === installment.parentId);
-                    if (!parentEntry) {
-                        throw new Error('Entrada pai não encontrada');
-                    }
-
-                    const newPaidInstallments = installment.current;
-
-                    // CORREÇÃO: Usar estrutura correta do Firestore
-                    await firebase.firestore()
-                        .collection('financas')
-                        .doc(userId)
-                        .collection('entries')
-                        .doc(installment.parentId)
-                        .update({
-                            paidInstallments: newPaidInstallments,
-                            status: newPaidInstallments === parentEntry.totalInstallments ? 'paid' : 'pending',
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-
-                    console.log(`Parcela ${installment.current}/${installment.total} quitada com sucesso!`);
-
-                } catch (err) {
-                    console.error('Erro ao quitar parcela:', err);
-                    if (showError) showError(err);
-                    else alert('Erro ao quitar parcela. Verifique o console.');
-                } finally {
-                    setPayingInstallment(null);
+                    const { db, collection, addDoc } = window.firebase;
+                    await addDoc(collection(db, 'transacoes'), transacao);
+                    return true;
+                } catch (error) {
+                    console.error('Erro ao adicionar transação:', error);
+                    return false;
                 }
             };
 
-            const payAllInstallments = async (parentId) => {
-                const parent = groupedByParent[parentId];
-                if (!parent) return;
+            const atualizarTransacao = async (id, dados) => {
+                if (!window.firebase) {
+                    console.error('Firebase não disponível');
+                    return false;
+                }
 
                 try {
-                    // CORREÇÃO: Usar estrutura correta do Firestore
-                    await firebase.firestore()
-                        .collection('financas')
-                        .doc(userId)
-                        .collection('entries')
-                        .doc(parentId)
-                        .update({
-                            paidInstallments: parent.parent.totalInstallments,
-                            status: 'paid',
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-
-                    console.log(`Todas as parcelas de ${parent.parent.description} quitadas!`);
-
-                } catch (err) {
-                    console.error('Erro ao quitar todas as parcelas:', err);
-                    if (showError) showError(err);
-                    else alert('Erro ao quitar parcelas. Verifique o console.');
+                    const { db, doc, updateDoc } = window.firebase;
+                    await updateDoc(doc(db, 'transacoes', id), dados);
+                    return true;
+                } catch (error) {
+                    console.error('Erro ao atualizar transação:', error);
+                    return false;
                 }
             };
 
-            const pendingInstallments = list.filter(i => !i.isPaid);
-            const paidInstallments = list.filter(i => i.isPaid);
+            const excluirTransacao = async (id) => {
+                if (!window.firebase) {
+                    console.error('Firebase não disponível');
+                    return false;
+                }
 
-            return (
-                <div className="space-y-6">
-                    <div className={`p-6 rounded-xl shadow ${darkMode ? 'bg-gray-800' : 'bg-white'
-                        }`}>
-                        <h2 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'
-                            }`}>
-                            📅 Sistema de Parcelas
-                        </h2>
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Gerencie e quite suas parcelas pendentes
-                        </p>
-                    </div>
+                try {
+                    const { db, doc, deleteDoc } = window.firebase;
+                    await deleteDoc(doc(db, 'transacoes', id));
+                    return true;
+                } catch (error) {
+                    console.error('Erro ao excluir transação:', error);
+                    return false;
+                }
+            };
 
-                    {/* CARDS DE RESUMO */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className={`p-4 rounded-xl shadow border-l-4 border-orange-500 ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                                }`}>Total Pendente</h3>
-                            <p className={`text-xl md:text-2xl font-extrabold text-orange-500`}>
-                                {formatCurrency(totalPendente)}
-                            </p>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                                {parcelasPendentes} parcelas
-                            </p>
-                        </div>
-                        <div className={`p-4 rounded-xl shadow border-l-4 border-emerald-500 ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                                }`}>Total Quitado</h3>
-                            <p className={`text-xl md:text-2xl font-extrabold text-emerald-500`}>
-                                {formatCurrency(totalQuitado)}
-                            </p>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                                {parcelasQuitadas} parcelas
-                            </p>
-                        </div>
-                        <div className={`p-4 rounded-xl shadow border-l-4 border-purple-500 ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                                }`}>Próximo Vencimento</h3>
-                            <p className={`text-xl md:text-2xl font-extrabold text-purple-500`}>
-                                {pendingInstallments.length > 0 ? formatDate(pendingInstallments[0].dueDate) : '--/--/--'}
-                            </p>
-                            {pendingInstallments.length > 0 && (
-                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                                    {formatCurrency(pendingInstallments[0].amount)}
-                                </p>
-                            )}
-                        </div>
-                        <div className={`p-4 rounded-xl shadow border-l-4 border-blue-500 ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <h3 className={`text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                                }`}>Compras Parceladas</h3>
-                            <p className={`text-xl md:text-2xl font-extrabold text-blue-500`}>
-                                {Object.keys(groupedByParent).length}
-                            </p>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                                {list.length} parcelas no total
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* PARCELAS PENDENTES */}
-                    <div className={`rounded-xl shadow overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'
-                        }`}>
-                        <div className={`p-4 border-b ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'
-                            }`}>
-                            <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'
-                                }`}>
-                                ⏳ Parcelas Pendentes ({pendingInstallments.length})
-                            </h3>
-                        </div>
-
-                        {pendingInstallments.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                                <div className="text-4xl mb-4">🎉</div>
-                                <p className="text-lg font-semibold mb-2">Nenhuma parcela pendente!</p>
-                                <p className="text-sm">Todas as suas parcelas estão em dia.</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col">
-                                {pendingInstallments.map(installment => {
-                                    const daysUntil = getDaysUntil(installment.dueDate);
-                                    const isLate = daysUntil < 0;
-                                    const isSoon = daysUntil <= 7 && daysUntil >= 0;
-                                    const parent = groupedByParent[installment.parentId];
-
-                                    return (
-                                        <div
-                                            key={installment.uniqueId}
-                                            className={`flex justify-between items-center p-4 border-b last:border-0 transition-colors ${isLate ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-l-red-500' :
-                                                    isSoon ? 'bg-orange-50 dark:bg-orange-900/20 border-l-4 border-l-orange-500' :
-                                                        darkMode ? 'border-gray-700 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <div className="flex-1">
-                                                <div className={`font-bold text-sm ${darkMode ? 'text-gray-200' : 'text-gray-800'
-                                                    }`}>
-                                                    {installment.description}
-                                                </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                    Parcela {installment.current}/{installment.total} •
-                                                    Vence: {formatDate(installment.dueDate.toISOString())} •
-                                                    {isLate ? ` ${Math.abs(daysUntil)} dias atrasado` :
-                                                        isSoon ? ` em ${daysUntil} dias` :
-                                                            ` em ${daysUntil} dias`}
-                                                </div>
-                                                {parent && (
-                                                    <div className="text-xs text-blue-500 dark:text-blue-400 mt-1">
-                                                        {parent.parent.paidInstallments}/{parent.parent.totalInstallments} parcelas pagas
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-right">
-                                                    <div className="font-bold text-red-500">
-                                                        {formatCurrency(installment.amount)}
-                                                    </div>
-                                                    <div className={`text-xs ${isLate ? 'text-red-500 font-bold' :
-                                                            isSoon ? 'text-orange-500' :
-                                                                darkMode ? 'text-gray-400' : 'text-gray-500'
-                                                        }`}>
-                                                        {isLate ? 'ATRASADO' : isSoon ? 'PRÓXIMO' : 'PENDENTE'}
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => payInstallment(installment)}
-                                                    disabled={payingInstallment === installment.uniqueId}
-                                                    className={`px-3 py-2 rounded-lg font-semibold text-white transition-all ${payingInstallment === installment.uniqueId
-                                                            ? 'bg-gray-400 cursor-not-allowed'
-                                                            : 'bg-emerald-500 hover:bg-emerald-600'
-                                                        }`}
-                                                >
-                                                    {payingInstallment === installment.uniqueId ? '💫' : '💳'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* PARCELAS QUITADAS */}
-                    {paidInstallments.length > 0 && (
-                        <div className={`rounded-xl shadow overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'
-                            }`}>
-                            <div className={`p-4 border-b ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'
-                                }`}>
-                                <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'
-                                    }`}>
-                                    ✅ Parcelas Quitadas ({paidInstallments.length})
-                                </h3>
-                            </div>
-                            <div className="flex flex-col">
-                                {paidInstallments.slice(0, 10).map(installment => (
-                                    <div
-                                        key={installment.uniqueId}
-                                        className={`flex justify-between items-center p-4 border-b last:border-0 ${darkMode ? 'border-gray-700 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        <div className="flex-1">
-                                            <div className={`font-bold text-sm ${darkMode ? 'text-gray-200' : 'text-gray-800'
-                                                }`}>
-                                                {installment.description}
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                Parcela {installment.current}/{installment.total} •
-                                                Paga em: {formatDate(new Date().toISOString())}
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="font-bold text-emerald-500">
-                                                {formatCurrency(installment.amount)}
-                                            </div>
-                                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                QUITADO
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {paidInstallments.length > 10 && (
-                                    <div className={`p-4 text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'
-                                        }`}>
-                                        + {paidInstallments.length - 10} parcelas quitadas
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* COMPRAS PARCELADAS - VISÃO GERAL */}
-                    <div className={`rounded-xl shadow overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'
-                        }`}>
-                        <div className={`p-4 border-b ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'
-                            }`}>
-                            <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'
-                                }`}>
-                                🛒 Compras Parceladas
-                            </h3>
-                        </div>
-                        <div className="flex flex-col">
-                            {Object.entries(groupedByParent).map(([parentId, group]) => {
-                                const pendingCount = group.installments.filter(i => !i.isPaid).length;
-                                const paidCount = group.installments.filter(i => i.isPaid).length;
-                                const totalAmount = group.parent.amount;
-                                const paidAmount = paidCount * (totalAmount / group.parent.totalInstallments);
-
-                                return (
-                                    <div
-                                        key={parentId}
-                                        className={`flex justify-between items-center p-4 border-b last:border-0 ${darkMode ? 'border-gray-700 hover:bg-white/5' : 'border-gray-100 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        <div className="flex-1">
-                                            <div className={`font-bold text-sm ${darkMode ? 'text-gray-200' : 'text-gray-800'
-                                                }`}>
-                                                {group.parent.description}
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                {paidCount}/{group.parent.totalInstallments} parcelas pagas •
-                                                Total: {formatCurrency(totalAmount)}
-                                            </div>
-                                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
-                                                <div
-                                                    className="bg-emerald-500 h-2 rounded-full transition-all"
-                                                    style={{ width: `${(paidCount / group.parent.totalInstallments) * 100}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-right">
-                                                <div className="font-bold text-orange-500">
-                                                    {formatCurrency(totalAmount - paidAmount)}
-                                                </div>
-                                                <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    Restante
-                                                </div>
-                                            </div>
-                                            {pendingCount > 0 && (
-                                                <button
-                                                    onClick={() => payAllInstallments(parentId)}
-                                                    className="px-3 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors"
-                                                >
-                                                    Quitar Todas
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- COMPONENTE DE ALERTA DE ERRO ---
-        const ErrorAlert = ({ message, onClose }) => {
-            if (!message) return null;
-
-            // Sugestões amigáveis baseadas no erro
-            let sugestao = "";
-            if (message.includes("permission-denied") || message.includes("Missing or insufficient permissions")) {
-                sugestao = "🔒 ERRO DE PERMISSÃO: O Firebase bloqueou a gravação. Vá no Console do Firebase > Firestore Database > Regras e altere para 'allow read, write: if true;'";
-            } else if (message.includes("operation-not-allowed")) {
-                sugestao = "🚫 ERRO DE AUTENTICAÇÃO: O login anônimo não está ativado. Vá no Console do Firebase > Authentication > Sign-in method e ative o provedor 'Anônimo'.";
-            } else if (message.includes("quota-exceeded")) {
-                sugestao = "📉 COTA EXCEDIDA: O limite gratuito do Firebase foi atingido para hoje.";
-            }
-
-            return (
-                <div className="fixed top-4 left-4 right-4 z-[100] animate-bounce-in">
-                    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg flex justify-between items-start max-w-4xl mx-auto">
-                        <div>
-                            <p className="font-bold">❌ Ocorreu um erro ao salvar:</p>
-                            <p className="text-sm mt-1 font-mono bg-red-50 p-1 rounded">{message}</p>
-                            {sugestao && (
-                                <div className="mt-3 p-2 bg-white/50 rounded border border-red-200">
-                                    <p className="font-bold text-red-800">💡 COMO RESOLVER:</p>
-                                    <p className="text-sm text-red-800">{sugestao}</p>
-                                </div>
-                            )}
-                        </div>
-                        <button onClick={onClose} className="text-red-500 hover:text-red-900 font-bold text-xl px-2">
-                            &times;
-                        </button>
-                    </div>
-                </div>
-            );
+            return { transacoes, carregando, adicionarTransacao, atualizarTransacao, excluirTransacao };
         };
 
         // --- APP PRINCIPAL ---
         function App() {
-            const [darkMode, setDarkMode] = useState(false);
-            const [activeView, setActiveView] = useState('dashboard');
-            const [currentDate, setCurrentDate] = useState(new Date());
-            const [userId, setUserId] = useState(null);
-            const [entries, setEntries] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
-            const [saveError, setSaveError] = useState(null); // Novo estado para erros de salvamento
+            // State
+            const { transacoes, carregando, adicionarTransacao, atualizarTransacao, excluirTransacao } = useFirebaseTransacoes();
+            const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth());
+            const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+            const [telaAtual, setTelaAtual] = useState('dashboard');
+            const [menuAberto, setMenuAberto] = useState(false);
+            
+            // Forms State
+            const [novoItem, setNovoItem] = useState({ tipo: 'saida', categoria: '', valor: '', data: '', descricao: '', observacao: '' });
+            const [dadosCartao, setDadosCartao] = useState({ cardNome: 'Cartão Nubank', valorTotal: '', parcelas: 1, dataCompra: '', descricao: '', observacao: '' });
 
-            // Função helper para mostrar erros na tela
-            const showError = (msg) => {
-                console.error(msg);
-                setSaveError(typeof msg === 'object' ? (msg.message || JSON.stringify(msg)) : msg);
-                // Auto-limpar após 10 segundos se não for crítico
-                setTimeout(() => setSaveError(null), 15000);
+            // Cálculos
+            const dadosFiltrados = useMemo(() => {
+                return transacoes.filter(t => {
+                    const d = new Date(t.data + 'T12:00:00');
+                    return d.getMonth() === mesSelecionado && d.getFullYear() === anoSelecionado;
+                });
+            }, [transacoes, mesSelecionado, anoSelecionado]);
+
+            const resumo = useMemo(() => {
+                const ent = dadosFiltrados.filter(t => t.tipo === 'entrada').reduce((acc, c) => acc + Number(c.valor), 0);
+                const sai = dadosFiltrados.filter(t => t.tipo === 'saida').reduce((acc, c) => acc + Number(c.valor), 0);
+                return { entradas: ent, saidas: sai, saldo: ent - sai };
+            }, [dadosFiltrados]);
+
+            const previsaoSemestral = useMemo(() => {
+                const hoje = new Date();
+                const dados = [];
+                for (let i = 1; i <= 6; i++) {
+                    const dataFutura = new Date(anoSelecionado, mesSelecionado + i, 1);
+                    const mes = dataFutura.getMonth();
+                    const ano = dataFutura.getFullYear();
+                    
+                    const totalMes = transacoes
+                        .filter(t => t.tipo === 'saida')
+                        .filter(t => {
+                            const d = new Date(t.data + 'T12:00:00');
+                            return d.getMonth() === mes && d.getFullYear() === ano;
+                        })
+                        .reduce((acc, c) => acc + Number(c.valor), 0);
+                    
+                    dados.push({
+                        mes: dataFutura.toLocaleString('pt-BR', { month: 'short' }).toUpperCase(),
+                        valor: totalMes
+                    });
+                }
+                return dados;
+            }, [transacoes, mesSelecionado, anoSelecionado]);
+
+            const categoriasData = useMemo(() => {
+                const cats = {};
+                dadosFiltrados.filter(t => t.tipo === 'saida').forEach(t => cats[t.categoria] = (cats[t.categoria] || 0) + Number(t.valor));
+                return Object.keys(cats).map(c => ({ name: c, value: cats[c] }));
+            }, [dadosFiltrados]);
+
+            // Ações
+            const salvarTransacao = async (e) => {
+                e.preventDefault();
+                if (!novoItem.valor || !novoItem.categoria || !novoItem.data) return;
+                
+                const transacao = { 
+                    ...novoItem, 
+                    valor: parseFloat(novoItem.valor), 
+                    pago: novoItem.tipo === 'entrada',
+                    criadoEm: new Date().toISOString()
+                };
+                
+                const sucesso = await adicionarTransacao(transacao);
+                if (sucesso) {
+                    setNovoItem({ ...novoItem, valor: '', descricao: '', observacao: '' });
+                    alert('Registro salvo com sucesso!');
+                } else {
+                    alert('Erro ao salvar registro. Tente novamente.');
+                }
             };
 
-            useEffect(() => {
-                const initializeFirebase = async () => {
-                    try {
-                        // Verificar se o Firebase já foi inicializado
-                        if (!firebase.apps.length) {
-                            firebase.initializeApp(firebaseConfig);
-                        }
-                        console.log('Firebase inicializado com sucesso!');
+            const gerarParcelas = async (e) => {
+                e.preventDefault();
+                if (!dadosCartao.valorTotal || !dadosCartao.parcelas) return;
+                
+                const valorParc = parseFloat(dadosCartao.valorTotal) / parseInt(dadosCartao.parcelas);
+                const dataIni = new Date(dadosCartao.dataCompra + 'T12:00:00');
+                
+                for(let i = 0; i < parseInt(dadosCartao.parcelas); i++) {
+                    const d = new Date(dataIni);
+                    d.setMonth(dataIni.getMonth() + i);
+                    
+                    const parcela = {
+                        tipo: 'saida', 
+                        categoria: dadosCartao.cardNome, 
+                        valor: valorParc,
+                        data: d.toISOString().split('T')[0],
+                        descricao: `${dadosCartao.descricao} (${i+1}/${dadosCartao.parcelas})`,
+                        observacao: dadosCartao.observacao, 
+                        pago: false,
+                        criadoEm: new Date().toISOString()
+                    };
+                    
+                    await adicionarTransacao(parcela);
+                }
+                
+                alert('Parcelamento provisionado com sucesso!');
+                setDadosCartao({ cardNome: 'Cartão Nubank', valorTotal: '', parcelas: 1, dataCompra: '', descricao: '', observacao: '' });
+            };
 
-                        firebase.auth().onAuthStateChanged(async (user) => {
-                            try {
-                                if (user) {
-                                    console.log('Usuário logado:', user.uid);
-                                    setUserId(user.uid);
+            const togglePago = async (id, pagoAtual) => {
+                const sucesso = await atualizarTransacao(id, { pago: !pagoAtual });
+                if (!sucesso) {
+                    alert('Erro ao atualizar status. Tente novamente.');
+                }
+            };
 
-                                    // CORREÇÃO: Usar estrutura correta do Firestore
-                                    const unsubscribe = firebase.firestore()
-                                        .collection('financas')
-                                        .doc(user.uid)
-                                        .collection('entries')
-                                        .onSnapshot((snapshot) => {
-                                            const entriesData = snapshot.docs.map(doc => ({
-                                                id: doc.id,
-                                                ...doc.data()
-                                            }));
-                                            console.log('Dados carregados:', entriesData.length, 'registros');
-                                            setEntries(entriesData);
-                                            setLoading(false);
-                                            setError(null);
-                                        }, (err) => {
-                                            console.error('Erro no snapshot:', err);
-                                            setError('Erro ao carregar dados do Firestore');
-                                            setLoading(false);
-                                        });
-                                } else {
-                                    console.log('Fazendo login anônimo...');
-                                    await firebase.auth().signInAnonymously();
-                                }
-                            } catch (err) {
-                                console.error('Erro na autenticação:', err);
-                                setError('Erro de autenticação: ' + err.message);
-                                setLoading(false);
-                            }
-                        });
-
-                    } catch (err) {
-                        console.error('Erro na inicialização do Firebase:', err);
-                        setError('Erro ao conectar com o Firebase: ' + err.message);
-                        setLoading(false);
+            const deletarTransacao = async (id) => {
+                if (confirm('Tem certeza que deseja excluir este registro?')) {
+                    const sucesso = await excluirTransacao(id);
+                    if (!sucesso) {
+                        alert('Erro ao excluir registro. Tente novamente.');
                     }
-                };
+                }
+            };
 
-                initializeFirebase();
-            }, []);
+            // Renders
+            const renderDashboard = () => (
+                <div className="space-y-12 fade-in pb-10">
+                    {carregando && (
+                        <div className="flex justify-center items-center py-8">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                        </div>
+                    )}
+                    
+                    {/* Painel Circular Dashboard */}
+                    <div className="flex flex-col md:flex-row justify-center items-center gap-8 md:gap-12 py-6">
+                        <CardCircular 
+                            titulo="Entradas" 
+                            valor={resumo.entradas} 
+                            Icone={Icons.ArrowUp} 
+                            gradient="bg-gradient-to-br from-emerald-500 to-teal-600" 
+                        />
+                        
+                        {/* Saldo Principal - Maior e Central */}
+                        <div className="transform scale-110 z-10">
+                            <CardCircular 
+                                titulo="Saldo Disponível" 
+                                valor={resumo.saldo} 
+                                Icone={Icons.Wallet} 
+                                gradient={resumo.saldo >= 0 ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-red-600 to-orange-700"}
+                                subtitulo={resumo.saldo >= 0 ? "Em Caixa" : "Negativo"} 
+                            />
+                        </div>
 
-            if (loading) {
-                return <LoadingSpinner />;
-            }
+                        <CardCircular 
+                            titulo="Saídas" 
+                            valor={resumo.saidas} 
+                            Icone={Icons.ArrowDown} 
+                            gradient="bg-gradient-to-br from-rose-500 to-red-600" 
+                        />
+                    </div>
 
-            if (error) {
-                return (
-                    <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-                        <div className="text-center p-8 max-w-md">
-                            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-                            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Erro de Conexão</h2>
-                            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="w-full bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors"
-                            >
-                                Tentar Novamente
-                            </button>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Gráfico Pizza */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 card-glass">
+                            <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                                <span className="p-2 bg-purple-100 text-purple-600 rounded-lg"><Icons.PieChart/></span>
+                                Onde seu dinheiro está indo?
+                            </h3>
+                            <GraficoPizza dados={categoriasData} />
+                        </div>
+
+                        {/* Gráfico Barras (Futuro) */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 card-glass">
+                            <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                                <span className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Icons.TrendingUp/></span>
+                                Previsão de Gastos (6 Meses)
+                            </h3>
+                            <p className="text-sm text-slate-500 mb-4">Valores já comprometidos com parcelas e agendamentos.</p>
+                            <GraficoBarras dados={previsaoSemestral} />
                         </div>
                     </div>
-                );
-            }
 
-            // Removido renderContent para usar renderização direta com props extras
+                    {/* Alertas Rápidos */}
+                    <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
+                        <h3 className="font-bold text-amber-800 flex items-center gap-2 mb-4"><Icons.Alert/> Contas Próximas do Vencimento</h3>
+                        <div className="flex gap-4 overflow-x-auto pb-2">
+                            {transacoes
+                                .filter(t => !t.pago && t.tipo === 'saida')
+                                .sort((a,b) => new Date(a.data) - new Date(b.data))
+                                .slice(0, 5)
+                                .map(t => (
+                                    <div key={t.id} className="min-w-[200px] bg-white p-4 rounded-xl shadow-sm border border-amber-100">
+                                        <p className="font-semibold text-slate-800 truncate">{t.descricao}</p>
+                                        <p className="text-xs text-slate-500">{new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                                        <p className="font-bold text-amber-600 mt-2">{t.valor.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</p>
+                                    </div>
+                            ))}
+                            {transacoes.filter(t => !t.pago && t.tipo === 'saida').length === 0 && <p className="text-amber-700 text-sm">Nenhuma conta pendente próxima.</p>}
+                        </div>
+                    </div>
+                </div>
+            );
 
+            const renderForm = (tipo) => (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 fade-in">
+                    {/* Formulário */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 sticky top-6">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className={`p-3 rounded-xl ${tipo === 'entrada' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                    <Icons.Plus />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800">Nova {tipo === 'entrada' ? 'Receita' : 'Despesa'}</h3>
+                                    <p className="text-xs text-slate-500">Preencha os dados do lançamento</p>
+                                </div>
+                            </div>
+                            
+                            <form onSubmit={salvarTransacao} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Descrição</label>
+                                    <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value, tipo})} placeholder="Ex: Conta de Luz" />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Valor</label>
+                                        <input required type="number" step="0.01" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={novoItem.valor} onChange={e => setNovoItem({...novoItem, valor: e.target.value, tipo})} placeholder="0,00" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Data</label>
+                                        <input required type="date" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-600" value={novoItem.data} onChange={e => setNovoItem({...novoItem, data: e.target.value, tipo})} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Categoria</label>
+                                    <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={novoItem.categoria} onChange={e => setNovoItem({...novoItem, categoria: e.target.value, tipo})}>
+                                        <option value="">Selecione...</option>
+                                        {(tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA).map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Observação (Opcional)</label>
+                                    <textarea rows="2" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" value={novoItem.observacao} onChange={e => setNovoItem({...novoItem, observacao: e.target.value, tipo})} placeholder="Detalhes adicionais..."></textarea>
+                                </div>
+
+                                <Botao variant={tipo === 'entrada' ? 'success' : 'danger'} className="w-full mt-2">
+                                    Confirmar Lançamento
+                                </Botao>
+                            </form>
+                        </div>
+                    </div>
+
+                    {/* Lista */}
+                    <div className="lg:col-span-8">
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                <h3 className="font-bold text-slate-700">Histórico de Lançamentos</h3>
+                                <span className="text-xs font-medium bg-slate-100 text-slate-500 px-3 py-1 rounded-full">{dadosFiltrados.filter(t => t.tipo === tipo).length} registros</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                                        <tr>
+                                            <th className="p-4">Data</th>
+                                            <th className="p-4">Descrição / Obs</th>
+                                            <th className="p-4">Categoria</th>
+                                            <th className="p-4">Valor</th>
+                                            <th className="p-4 text-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {carregando ? (
+                                            <tr><td colSpan="5" className="p-8 text-center text-slate-400">Carregando...</td></tr>
+                                        ) : dadosFiltrados.filter(t => t.tipo === tipo).map(item => (
+                                            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                <td className="p-4 text-slate-500 font-medium whitespace-nowrap">
+                                                    {new Date(item.data + 'T12:00:00').getDate().toString().padStart(2, '0')}/
+                                                    {(new Date(item.data + 'T12:00:00').getMonth() + 1).toString().padStart(2, '0')}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="font-semibold text-slate-700">{item.descricao}</div>
+                                                    {item.observacao && <div className="text-xs text-slate-400 mt-1 italic">{item.observacao}</div>}
+                                                </td>
+                                                <td className="p-4"><span className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">{item.categoria}</span></td>
+                                                <td className={`p-4 font-bold ${tipo === 'entrada' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    {item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex justify-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => togglePago(item.id, item.pago)} className={`p-2 rounded-lg transition-colors ${item.pago ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`} title="Marcar Pago"><Icons.Check /></button>
+                                                        <button onClick={() => deletarTransacao(item.id)} className="p-2 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-colors"><Icons.Trash /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {!carregando && dadosFiltrados.filter(t => t.tipo === tipo).length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-400">Nenhum registro encontrado.</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
 
             return (
-                <div className={`min-h-screen font-sans transition-colors duration-200 pb-10 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'
-                    }`}>
-                    <Header
-                        darkMode={darkMode}
-                        toggleDarkMode={() => setDarkMode(!darkMode)}
-                        activeView={activeView}
-                        setActiveView={setActiveView}
-                        userId={userId}
-                    />
+                <div className="min-h-screen flex bg-slate-50 text-slate-800 font-sans">
+                    {/* Sidebar */}
+                    <aside className={`fixed lg:sticky top-0 h-screen w-72 bg-[#0f172a] text-white p-6 flex flex-col transition-transform z-30 shadow-2xl ${menuAberto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+                        <div className="flex items-center gap-3 mb-10 pl-2">
+                            <div className="bg-gradient-to-tr from-blue-500 to-purple-500 p-2.5 rounded-xl shadow-lg shadow-blue-500/20"><Icons.Dashboard /></div>
+                            <div>
+                                <h1 className="text-xl font-bold tracking-tight">FinançasPro</h1>
+                                <p className="text-xs text-slate-400">Gestão Inteligente</p>
+                            </div>
+                            <button className="ml-auto lg:hidden text-slate-400" onClick={() => setMenuAberto(false)}><Icons.X/></button>
+                        </div>
+                        <nav className="space-y-2 flex-1">
+                            {[
+                                { id: 'dashboard', label: 'Dashboard Geral', icon: Icons.Dashboard },
+                                { id: 'entradas', label: 'Minhas Entradas', icon: Icons.ArrowUp },
+                                { id: 'saidas', label: 'Minhas Despesas', icon: Icons.ArrowDown },
+                                { id: 'cartoes', label: 'Parcelamentos', icon: Icons.CreditCard },
+                            ].map(item => (
+                                <button key={item.id} onClick={() => { setTelaAtual(item.id); setMenuAberto(false); }} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-medium group ${telaAtual === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}>
+                                    <item.icon /> {item.label}
+                                </button>
+                            ))}
+                        </nav>
+                    </aside>
 
-                    <ErrorAlert message={saveError} onClose={() => setSaveError(null)} />
+                    {/* Conteúdo Principal */}
+                    <main className="flex-1 p-4 lg:p-8 overflow-y-auto w-full">
+                        {/* Header Mobile & Filtros */}
+                        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                            <div className="flex items-center w-full md:w-auto">
+                                <button onClick={() => setMenuAberto(true)} className="lg:hidden p-2 mr-4 bg-white rounded-lg shadow-sm border"><Icons.Menu/></button>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-800">
+                                        {telaAtual === 'dashboard' && 'Visão Geral'}
+                                        {telaAtual === 'entradas' && 'Gestão de Entradas'}
+                                        {telaAtual === 'saidas' && 'Gestão de Saídas'}
+                                        {telaAtual === 'cartoes' && 'Simulador de Parcelas'}
+                                    </h2>
+                                    <p className="text-sm text-slate-500">Bem-vindo ao seu painel financeiro.</p>
+                                </div>
+                            </div>
 
-                    <main className="max-w-7xl mx-auto p-4">
-                        {/* Passando showError para as views filhas */}
-                        {activeView === 'dashboard' && <DashboardView entries={entries} currentDate={currentDate} setCurrentDate={setCurrentDate} darkMode={darkMode} />}
-                        {activeView === 'incomes' && <CategoryView userId={userId} entries={entries} currentDate={currentDate} setCurrentDate={setCurrentDate} darkMode={darkMode} type="Receita" showError={showError} />}
-                        {activeView === 'expenses' && <CategoryView userId={userId} entries={entries} currentDate={currentDate} setCurrentDate={setCurrentDate} darkMode={darkMode} type="Despesa" showError={showError} />}
-                        {activeView === 'installments' && <InstallmentsView entries={entries} darkMode={darkMode} userId={userId} showError={showError} />}
+                            <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-200 flex items-center">
+                                <select value={mesSelecionado} onChange={(e) => setMesSelecionado(parseInt(e.target.value))} className="bg-transparent border-none text-sm font-semibold text-slate-600 focus:ring-0 cursor-pointer outline-none px-3 py-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                    {Array.from({length: 12}, (_, i) => <option key={i} value={i}>{new Date(0, i).toLocaleString('pt-BR', {month:'long'}).toUpperCase()}</option>)}
+                                </select>
+                                <div className="w-px h-4 bg-slate-300 mx-1"></div>
+                                <select value={anoSelecionado} onChange={(e) => setAnoSelecionado(parseInt(e.target.value))} className="bg-transparent border-none text-sm font-semibold text-slate-600 focus:ring-0 cursor-pointer outline-none px-3 py-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                    {[2023, 2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        {telaAtual === 'dashboard' && renderDashboard()}
+                        {(telaAtual === 'entradas' || telaAtual === 'saidas') && renderForm(telaAtual === 'entradas' ? 'entrada' : 'saida')}
+                        
+                        {telaAtual === 'cartoes' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 fade-in">
+                                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="p-3 bg-purple-100 text-purple-600 rounded-xl"><Icons.CreditCard/></div>
+                                        <div>
+                                            <h3 className="font-bold text-slate-800 text-lg">Nova Compra Parcelada</h3>
+                                            <p className="text-sm text-slate-500">O sistema dividirá o valor automaticamente</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <form onSubmit={gerarParcelas} className="space-y-5">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {['Cartão Nubank', 'Cartão Banco do Brasil', 'Outros Parcelamentos'].map(c => (
+                                                <button type="button" key={c} onClick={() => setDadosCartao({...dadosCartao, cardNome: c})} className={`py-3 px-2 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${dadosCartao.cardNome===c ? 'border-purple-500 bg-purple-50 text-purple-700 ring-2 ring-purple-100' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>{c}</button>
+                                            ))}
+                                        </div>
+                                        
+                                        <div className="space-y-4">
+                                            <input type="text" placeholder="Descrição (ex: TV Nova)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" value={dadosCartao.descricao} onChange={e => setDadosCartao({...dadosCartao, descricao: e.target.value})} />
+                                            
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Valor Total</label>
+                                                    <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" value={dadosCartao.valorTotal} onChange={e => setDadosCartao({...dadosCartao, valorTotal: e.target.value})} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Parcelas</label>
+                                                    <input type="number" placeholder="12x" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" value={dadosCartao.parcelas} onChange={e => setDadosCartao({...dadosCartao, parcelas: e.target.value})} />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-400 uppercase ml-1">Data 1ª Parcela</label>
+                                                <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-600" value={dadosCartao.dataCompra} onChange={e => setDadosCartao({...dadosCartao, dataCompra: e.target.value})} />
+                                            </div>
+
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-400 uppercase ml-1">Observação</label>
+                                                <textarea rows="2" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-sm" value={dadosCartao.observacao} onChange={e => setDadosCartao({...dadosCartao, observacao: e.target.value})} placeholder="Detalhes da compra..."></textarea>
+                                            </div>
+                                        </div>
+
+                                        <Botao variant="purple" className="w-full text-lg shadow-purple-500/20">
+                                            Gerar Parcelamento Inteligente
+                                        </Botao>
+                                    </form>
+                                </div>
+
+                                <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-2xl shadow-xl text-white flex flex-col justify-between relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-400 opacity-10 rounded-full -ml-10 -mb-10 blur-2xl"></div>
+                                    
+                                    <div className="relative z-10">
+                                        <div className="bg-white/10 p-4 rounded-2xl w-fit mb-6 backdrop-blur-md border border-white/10">
+                                            <Icons.Calendar />
+                                        </div>
+                                        <h3 className="text-2xl font-bold mb-2">Previsão Inteligente</h3>
+                                        <p className="text-purple-100 leading-relaxed opacity-90">
+                                            Ao confirmar este parcelamento, o sistema irá criar automaticamente os lançamentos nos próximos meses.
+                                            <br/><br/>
+                                            Você poderá ver o impacto no gráfico de <strong>Previsão de Gastos</strong> no seu Dashboard.
+                                        </p>
+                                    </div>
+                                    <div className="mt-8 pt-6 border-t border-white/10 relative z-10">
+                                        <div className="flex justify-between items-center text-sm font-medium text-purple-200">
+                                            <span>Simulação:</span>
+                                            <span>{dadosCartao.valorTotal && dadosCartao.parcelas ? (dadosCartao.valorTotal / dadosCartao.parcelas).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}) + ' /mês' : 'R$ 0,00 /mês'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </main>
                 </div>
             );
         }
 
-        // Renderiza a aplicação
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
-
 </html>
