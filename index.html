@@ -21,7 +21,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO06nr7AbOisEVS3BTl0qq0ofKqaHAB_w",
@@ -37,7 +37,7 @@
         const db = getFirestore(app);
 
         // Disponibilizar Firebase globalmente
-        window.firebase = { db, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot };
+        window.firebase = { db, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, where };
     </script>
 
     <style>
@@ -79,34 +79,59 @@
             Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
             TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
             Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-            History: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+            History: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
+            Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            DollarSign: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+            TrendingDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>,
+            CheckCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>,
+            AlertCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>,
+            CreditCard2: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/><line x1="2" x2="22" y1="14" y2="14"/></svg>,
+            Cards: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 21V9"/><path d="M15 21V9"/></svg>,
+            ChartBar: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+            ChartPie: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
         };
 
+        // LISTA DE CARTÕES
+        const CARTOES = [
+            { id: 'nubank-meu', nome: 'Meu Nubank', cor: 'from-purple-500 to-pink-500', corTexto: 'text-purple-600', corFundo: 'bg-purple-100' },
+            { id: 'nubank-cristiane', nome: 'Nubank da Cristiane', cor: 'from-pink-500 to-rose-500', corTexto: 'text-pink-600', corFundo: 'bg-pink-100' },
+            { id: 'santander-cristiane', nome: 'Santander da Cristiane', cor: 'from-red-500 to-orange-500', corTexto: 'text-red-600', corFundo: 'bg-red-100' },
+            { id: 'bb-cristiane', nome: 'Banco do Brasil da Cristiane', cor: 'from-yellow-500 to-amber-500', corTexto: 'text-yellow-600', corFundo: 'bg-yellow-100' }
+        ];
+
         const CATEGORIAS_ENTRADA = ["Salário", "Aluguel Casa", "Aluguel Kitnet", "Freelance", "Investimentos", "Outras Entradas"];
-        const CATEGORIAS_SAIDA = ["Água", "Luz", "Internet", "Cartão Nubank", "Cartão Banco do Brasil", "Outros Parcelamentos", "Empréstimos", "Seguro do Carro", "Telefone Vivo", "Lazer", "Mercado", "Farmácia", "Combustível", "Outras Despesas"];
+        const CATEGORIAS_SAIDA = ["Água", "Luz", "Internet", "Aluguel", "Outras Despesas"];
 
         // --- COMPONENTES UI ---
-        const CardCircular = ({ titulo, valor, Icone, gradient, subtitulo }) => (
-            <div className={`
-                relative group
-                w-48 h-48 lg:w-56 lg:h-56
-                rounded-full shadow-2xl 
-                flex flex-col justify-center items-center text-center 
-                ${gradient}
-                border-4 border-white/20
-                transform transition-all duration-300 hover:scale-105
-            `}>
-                <div className="absolute inset-0 rounded-full border border-white/10 scale-90 group-hover:scale-100 transition-transform"></div>
-                <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm mb-2 shadow-inner">
-                    <Icone />
+        const CardDashboard = ({ titulo, valor, Icone, variant = 'primary', detalhe = null, className = '' }) => {
+            const variants = {
+                primary: { bg: 'bg-gradient-to-br from-blue-500 to-blue-600', text: 'text-white', icon: 'text-blue-100' },
+                success: { bg: 'bg-gradient-to-br from-emerald-500 to-emerald-600', text: 'text-white', icon: 'text-emerald-100' },
+                danger: { bg: 'bg-gradient-to-br from-rose-500 to-rose-600', text: 'text-white', icon: 'text-rose-100' },
+                warning: { bg: 'bg-gradient-to-br from-amber-500 to-amber-600', text: 'text-white', icon: 'text-amber-100' },
+                purple: { bg: 'bg-gradient-to-br from-purple-500 to-purple-600', text: 'text-white', icon: 'text-purple-100' },
+                indigo: { bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', text: 'text-white', icon: 'text-indigo-100' },
+                teal: { bg: 'bg-gradient-to-br from-teal-500 to-teal-600', text: 'text-white', icon: 'text-teal-100' },
+                orange: { bg: 'bg-gradient-to-br from-orange-500 to-orange-600', text: 'text-white', icon: 'text-orange-100' }
+            };
+
+            const v = variants[variant] || variants.primary;
+
+            return (
+                <div className={`${v.bg} rounded-2xl shadow-lg p-6 ${className} transition-all hover:shadow-xl hover:scale-[1.02] duration-300`}>
+                    <div className="flex items-start justify-between mb-4">
+                        <div className={`p-3 rounded-xl ${v.icon} bg-white/20 backdrop-blur-sm`}>
+                            <Icone />
+                        </div>
+                        {detalhe && <span className="text-xs font-medium bg-white/20 px-3 py-1 rounded-full">{detalhe}</span>}
+                    </div>
+                    <h3 className="text-white/90 text-sm font-semibold uppercase tracking-wider mb-2">{titulo}</h3>
+                    <div className="text-2xl font-bold tracking-tight text-white">
+                        {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
                 </div>
-                <p className="text-blue-50 text-xs lg:text-sm font-semibold uppercase tracking-wider mb-1 opacity-90">{titulo}</p>
-                <h3 className="text-xl lg:text-2xl font-bold tracking-tight px-2 text-white drop-shadow-md">
-                    {valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </h3>
-                {subtitulo && <span className="absolute bottom-6 text-[10px] font-medium bg-black/20 px-3 py-1 rounded-full text-white/90">{subtitulo}</span>}
-            </div>
-        );
+            );
+        };
 
         const Botao = ({ children, onClick, variant = 'primary', className = '' }) => {
             const baseStyle = "px-4 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 justify-center shadow-md active:scale-95";
@@ -297,8 +322,38 @@
             const [menuAberto, setMenuAberto] = useState(false);
             
             // Forms State
-            const [novoItem, setNovoItem] = useState({ tipo: 'saida', categoria: '', valor: '', data: '', descricao: '', observacao: '' });
-            const [dadosCartao, setDadosCartao] = useState({ cardNome: 'Cartão Nubank', valorTotal: '', parcelas: 1, dataCompra: '', descricao: '', observacao: '' });
+            const [novoItem, setNovoItem] = useState({ 
+                tipo: 'saida', 
+                categoria: '', 
+                valor: '', 
+                data: '', 
+                descricao: '', 
+                observacao: '',
+                cartaoId: ''
+            });
+            
+            const [dadosCartao, setDadosCartao] = useState({ 
+                cardNome: 'Meu Nubank', 
+                cartaoId: 'nubank-meu',
+                valorTotal: '', 
+                parcelas: 1, 
+                dataCompra: '', 
+                descricao: '', 
+                observacao: '' 
+            });
+            
+            // State para edição
+            const [editandoId, setEditandoId] = useState(null);
+            const [itemEditando, setItemEditando] = useState({
+                tipo: '', 
+                categoria: '', 
+                valor: '', 
+                data: '', 
+                descricao: '', 
+                observacao: '',
+                dataPagamento: '',
+                cartaoId: ''
+            });
 
             // Cálculo do SALDO ACUMULADO (sobra dos meses anteriores)
             const saldoAcumulado = useMemo(() => {
@@ -347,6 +402,8 @@
                     .filter(t => t.tipo === 'entrada' && t.pago)
                     .reduce((acc, c) => acc + Number(c.valor), 0);
                 
+                const entradasPendentes = entradasTotais - entradasConfirmadas;
+                
                 const saidasTotais = dadosFiltrados
                     .filter(t => t.tipo === 'saida')
                     .reduce((acc, c) => acc + Number(c.valor), 0);
@@ -354,6 +411,8 @@
                 const saidasConfirmadas = dadosFiltrados
                     .filter(t => t.tipo === 'saida' && t.pago)
                     .reduce((acc, c) => acc + Number(c.valor), 0);
+                
+                const saidasPendentes = saidasTotais - saidasConfirmadas;
 
                 const saldoMesAtual = entradasConfirmadas - saidasConfirmadas;
                 const saldoTotal = saldoAcumulado + saldoMesAtual;
@@ -361,16 +420,115 @@
                 return { 
                     entradasTotais,
                     entradasConfirmadas,
-                    entradasPendentes: entradasTotais - entradasConfirmadas,
+                    entradasPendentes,
                     
                     saidasTotais,
                     saidasConfirmadas,
-                    saidasPendentes: saidasTotais - saidasConfirmadas,
+                    saidasPendentes,
                     
                     saldoMesAtual,
                     saldoTotal
                 };
             }, [dadosFiltrados, saldoAcumulado]);
+
+            // Função para dar baixa em TODAS as parcelas de um cartão no mês
+            const darBaixaCartaoMes = async (cartaoId) => {
+                if (!window.firebase) {
+                    alert('Erro: Firebase não disponível');
+                    return false;
+                }
+
+                const confirmar = window.confirm(
+                    `Deseja dar baixa em TODAS as parcelas do cartão ${CARTOES.find(c => c.id === cartaoId)?.nome} no mês ${mesSelecionado + 1}/${anoSelecionado}?\n\nEsta ação marcará como pagas todas as parcelas deste cartão para este mês.`
+                );
+
+                if (!confirmar) return false;
+
+                try {
+                    const { db, collection, query, where, getDocs, updateDoc, doc } = window.firebase;
+                    
+                    // Buscar todas as transações do cartão no mês atual
+                    const transacoesRef = collection(db, 'transacoes');
+                    const q = query(
+                        transacoesRef,
+                        where('tipo', '==', 'saida'),
+                        where('cartaoId', '==', cartaoId)
+                    );
+                    
+                    const querySnapshot = await getDocs(q);
+                    const transacoesCartao = [];
+                    
+                    querySnapshot.forEach((docSnapshot) => {
+                        const data = docSnapshot.data();
+                        const dataTransacao = new Date(data.data + 'T12:00:00');
+                        
+                        // Verificar se a transação é do mês selecionado
+                        if (dataTransacao.getMonth() === mesSelecionado && 
+                            dataTransacao.getFullYear() === anoSelecionado &&
+                            !data.pago) {
+                            transacoesCartao.push({
+                                id: docSnapshot.id,
+                                ...data
+                            });
+                        }
+                    });
+
+                    if (transacoesCartao.length === 0) {
+                        alert('Nenhuma parcela pendente encontrada para este cartão neste mês.');
+                        return false;
+                    }
+
+                    // Dar baixa em todas as transações
+                    const hoje = new Date().toISOString().split('T')[0];
+                    let contador = 0;
+                    
+                    for (const transacao of transacoesCartao) {
+                        await updateDoc(doc(db, 'transacoes', transacao.id), {
+                            pago: true,
+                            dataPagamento: hoje
+                        });
+                        contador++;
+                    }
+
+                    alert(`✅ Baixa realizada com sucesso!\n\n${contador} parcela(s) do cartão ${CARTOES.find(c => c.id === cartaoId)?.nome} foram marcadas como pagas.`);
+                    return true;
+
+                } catch (error) {
+                    console.error('Erro ao dar baixa no cartão:', error);
+                    alert('Erro ao processar a baixa. Tente novamente.');
+                    return false;
+                }
+            };
+
+            // Resumo por cartão
+            const resumoPorCartao = useMemo(() => {
+                const resumo = {};
+                
+                CARTOES.forEach(cartao => {
+                    const transacoesCartao = dadosFiltrados.filter(t => 
+                        t.tipo === 'saida' && t.cartaoId === cartao.id
+                    );
+                    
+                    const total = transacoesCartao.reduce((acc, t) => acc + Number(t.valor), 0);
+                    const pagas = transacoesCartao.filter(t => t.pago).reduce((acc, t) => acc + Number(t.valor), 0);
+                    const pendentes = total - pagas;
+                    
+                    resumo[cartao.id] = {
+                        nome: cartao.nome,
+                        cor: cartao.cor,
+                        corTexto: cartao.corTexto,
+                        corFundo: cartao.corFundo,
+                        total,
+                        pagas,
+                        pendentes,
+                        quantidade: transacoesCartao.length,
+                        quantidadePagas: transacoesCartao.filter(t => t.pago).length,
+                        transacoes: transacoesCartao
+                    };
+                });
+                
+                return resumo;
+            }, [dadosFiltrados]);
 
             const previsaoSemestral = useMemo(() => {
                 const hoje = new Date();
@@ -402,6 +560,83 @@
                 return Object.keys(cats).map(c => ({ name: c, value: cats[c] }));
             }, [dadosFiltrados]);
 
+            // Função para iniciar edição
+            const iniciarEdicao = (item) => {
+                setEditandoId(item.id);
+                setItemEditando({
+                    tipo: item.tipo,
+                    categoria: item.categoria,
+                    valor: item.valor,
+                    data: item.data,
+                    descricao: item.descricao,
+                    observacao: item.observacao || '',
+                    dataPagamento: item.dataPagamento || '',
+                    cartaoId: item.cartaoId || ''
+                });
+                
+                // Mudar para a tela correta baseada no tipo
+                if (item.tipo === 'entrada') {
+                    setTelaAtual('entradas');
+                } else {
+                    setTelaAtual('saidas');
+                }
+                
+                // Scroll para o topo do formulário
+                setTimeout(() => {
+                    document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+            };
+
+            // Função para salvar edição
+            const salvarEdicao = async (e) => {
+                e.preventDefault();
+                if (!itemEditando.valor || !itemEditando.categoria || !itemEditando.data) return;
+                
+                const dadosAtualizados = { 
+                    ...itemEditando, 
+                    valor: parseFloat(itemEditando.valor),
+                    // Se tiver data de pagamento, marca como pago
+                    pago: itemEditando.dataPagamento ? true : false
+                };
+                
+                const sucesso = await atualizarTransacao(editandoId, dadosAtualizados);
+                if (sucesso) {
+                    setEditandoId(null);
+                    setItemEditando({
+                        tipo: '', categoria: '', valor: '', data: '', descricao: '', observacao: '', dataPagamento: '', cartaoId: ''
+                    });
+                    alert('Registro atualizado com sucesso!');
+                } else {
+                    alert('Erro ao atualizar registro. Tente novamente.');
+                }
+            };
+
+            // Função para dar baixa com data personalizada
+            const darBaixaComData = async (id, tipo, cartaoId = null) => {
+                const dataPagamento = prompt('Informe a data do pagamento/recebimento (formato YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+                
+                if (!dataPagamento) return;
+                
+                const sucesso = await atualizarTransacao(id, { 
+                    pago: true, 
+                    dataPagamento: dataPagamento 
+                });
+                
+                if (sucesso) {
+                    alert(`${tipo === 'entrada' ? 'Recebimento' : 'Pagamento'} registrado para ${dataPagamento}`);
+                    
+                    // Se for uma parcela de cartão, oferecer baixa em todas as parcelas do cartão
+                    if (cartaoId && tipo === 'saida') {
+                        const baixaCartao = confirm('Deseja dar baixa em TODAS as parcelas deste cartão para este mês?');
+                        if (baixaCartao) {
+                            await darBaixaCartaoMes(cartaoId);
+                        }
+                    }
+                } else {
+                    alert('Erro ao registrar baixa. Tente novamente.');
+                }
+            };
+
             // Ações
             const salvarTransacao = async (e) => {
                 e.preventDefault();
@@ -418,7 +653,15 @@
                 
                 const sucesso = await adicionarTransacao(transacao);
                 if (sucesso) {
-                    setNovoItem({ ...novoItem, valor: '', descricao: '', observacao: '' });
+                    setNovoItem({ 
+                        tipo: 'saida', 
+                        categoria: '', 
+                        valor: '', 
+                        data: '', 
+                        descricao: '', 
+                        observacao: '',
+                        cartaoId: ''
+                    });
                     alert('Registro salvo com sucesso!');
                 } else {
                     alert('Erro ao salvar registro. Tente novamente.');
@@ -432,29 +675,45 @@
                 const valorParc = parseFloat(dadosCartao.valorTotal) / parseInt(dadosCartao.parcelas);
                 const dataIni = new Date(dadosCartao.dataCompra + 'T12:00:00');
                 
+                // Encontrar o cartão selecionado
+                const cartaoSelecionado = CARTOES.find(c => c.id === dadosCartao.cartaoId);
+                if (!cartaoSelecionado) {
+                    alert('Por favor, selecione um cartão válido.');
+                    return;
+                }
+                
                 for(let i = 0; i < parseInt(dadosCartao.parcelas); i++) {
                     const d = new Date(dataIni);
                     d.setMonth(dataIni.getMonth() + i);
                     
                     const parcela = {
                         tipo: 'saida', 
-                        categoria: dadosCartao.cardNome, 
+                        categoria: cartaoSelecionado.nome,
                         valor: valorParc,
                         data: d.toISOString().split('T')[0],
                         descricao: `${dadosCartao.descricao} (${i+1}/${dadosCartao.parcelas})`,
                         observacao: dadosCartao.observacao, 
                         pago: false,
+                        cartaoId: cartaoSelecionado.id,
                         criadoEm: new Date().toISOString()
                     };
                     
                     await adicionarTransacao(parcela);
                 }
                 
-                alert('Parcelamento provisionado com sucesso!');
-                setDadosCartao({ cardNome: 'Cartão Nubank', valorTotal: '', parcelas: 1, dataCompra: '', descricao: '', observacao: '' });
+                alert(`Parcelamento provisionado com sucesso no ${cartaoSelecionado.nome}!`);
+                setDadosCartao({ 
+                    cardNome: 'Meu Nubank', 
+                    cartaoId: 'nubank-meu',
+                    valorTotal: '', 
+                    parcelas: 1, 
+                    dataCompra: '', 
+                    descricao: '', 
+                    observacao: '' 
+                });
             };
 
-            const toggleConfirmacao = async (id, pagoAtual, tipo) => {
+            const toggleConfirmacao = async (id, pagoAtual, tipo, cartaoId = null) => {
                 const sucesso = await atualizarTransacao(id, { pago: !pagoAtual });
                 if (!sucesso) {
                     alert('Erro ao atualizar status. Tente novamente.');
@@ -472,24 +731,25 @@
 
             // Renders
             const renderDashboard = () => (
-                <div className="space-y-12 fade-in pb-10">
+                <div className="space-y-8 fade-in pb-10">
                     {carregando && (
                         <div className="flex justify-center items-center py-8">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                         </div>
                     )}
                     
-                    {/* Saldo Acumulado */}
+                    {/* Cabeçalho com mês e saldo acumulado */}
                     <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl shadow-xl p-6 text-white">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                             <div>
-                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
-                                    <Icons.History />
-                                    Saldo Acumulado
-                                </h3>
-                                <p className="text-indigo-100">Soma de todos os meses anteriores</p>
+                                <h1 className="text-2xl font-bold mb-2 flex items-center gap-3">
+                                    <Icons.Calendar />
+                                    {new Date(anoSelecionado, mesSelecionado).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+                                </h1>
+                                <p className="text-indigo-100 opacity-90">Resumo financeiro completo do mês</p>
                             </div>
                             <div className="text-right">
+                                <div className="text-xs text-indigo-200 uppercase tracking-wider mb-1">Saldo Acumulado</div>
                                 <div className="text-3xl font-bold">
                                     {saldoAcumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </div>
@@ -500,103 +760,135 @@
                         </div>
                     </div>
 
-                    {/* Painel Circular Dashboard */}
-                    <div className="flex flex-col md:flex-row justify-center items-center gap-8 md:gap-12 py-6">
-                        {/* Entradas Totais */}
-                        <CardCircular 
-                            titulo="Entradas Totais" 
-                            valor={resumoMesAtual.entradasTotais} 
-                            Icone={Icons.ArrowUp} 
-                            gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
-                            subtitulo={`${resumoMesAtual.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} recebidas`}
-                        />
-                        
-                        {/* Saldo Total (Acumulado + Mês Atual) */}
-                        <div className="transform scale-110 z-10">
-                            <CardCircular 
-                                titulo="Saldo Total" 
-                                valor={resumoMesAtual.saldoTotal} 
-                                Icone={Icons.Wallet} 
-                                gradient={resumoMesAtual.saldoTotal >= 0 ? "bg-gradient-to-br from-blue-600 to-indigo-700" : "bg-gradient-to-br from-red-600 to-orange-700"}
-                                subtitulo="Acumulado + Este mês" 
+                    {/* QUADRO PRINCIPAL - 6 CARDS COMPLETOS */}
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <Icons.Dashboard />
+                            Visão Geral do Mês
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {/* ENTRADAS - JÁ RECEBIDAS */}
+                            <CardDashboard 
+                                titulo="JÁ RECEBIDAS" 
+                                valor={resumoMesAtual.entradasConfirmadas} 
+                                Icone={Icons.CheckCircle}
+                                variant="success"
+                                detalhe={`${resumoMesAtual.entradasTotais > 0 ? Math.round((resumoMesAtual.entradasConfirmadas / resumoMesAtual.entradasTotais) * 100) : 0}% do total`}
+                            />
+
+                            {/* ENTRADAS - A RECEBER */}
+                            <CardDashboard 
+                                titulo="A RECEBER" 
+                                valor={resumoMesAtual.entradasPendentes} 
+                                Icone={Icons.Clock}
+                                variant="warning"
+                                detalhe={`${resumoMesAtual.entradasTotais > 0 ? Math.round((resumoMesAtual.entradasPendentes / resumoMesAtual.entradasTotais) * 100) : 0}% pendente`}
+                            />
+
+                            {/* TOTAL ENTRADAS */}
+                            <CardDashboard 
+                                titulo="TOTAL ENTRADAS" 
+                                valor={resumoMesAtual.entradasTotais} 
+                                Icone={Icons.ArrowUp}
+                                variant="teal"
+                                detalhe={`${resumoMesAtual.entradasConfirmadas > 0 ? Math.round((resumoMesAtual.entradasConfirmadas / resumoMesAtual.entradasTotais) * 100) : 0}% recebido`}
+                            />
+
+                            {/* SAÍDAS - JÁ PAGAS */}
+                            <CardDashboard 
+                                titulo="JÁ PAGAS" 
+                                valor={resumoMesAtual.saidasConfirmadas} 
+                                Icone={Icons.CheckCircle}
+                                variant="indigo"
+                                detalhe={`${resumoMesAtual.saidasTotais > 0 ? Math.round((resumoMesAtual.saidasConfirmadas / resumoMesAtual.saidasTotais) * 100) : 0}% do total`}
+                            />
+
+                            {/* SAÍDAS - A PAGAR */}
+                            <CardDashboard 
+                                titulo="A PAGAR" 
+                                valor={resumoMesAtual.saidasPendentes} 
+                                Icone={Icons.AlertCircle}
+                                variant="danger"
+                                detalhe={`${resumoMesAtual.saidasTotais > 0 ? Math.round((resumoMesAtual.saidasPendentes / resumoMesAtual.saidasTotais) * 100) : 0}% pendente`}
+                            />
+
+                            {/* TOTAL SAÍDAS */}
+                            <CardDashboard 
+                                titulo="TOTAL SAÍDAS" 
+                                valor={resumoMesAtual.saidasTotais} 
+                                Icone={Icons.ArrowDown}
+                                variant="orange"
+                                detalhe={`${resumoMesAtual.saidasConfirmadas > 0 ? Math.round((resumoMesAtual.saidasConfirmadas / resumoMesAtual.saidasTotais) * 100) : 0}% pago`}
                             />
                         </div>
-
-                        {/* Saídas Totais */}
-                        <CardCircular 
-                            titulo="Saídas Totais" 
-                            valor={resumoMesAtual.saidasTotais} 
-                            Icone={Icons.ArrowDown} 
-                            gradient="bg-gradient-to-br from-rose-500 to-red-600"
-                            subtitulo={`${resumoMesAtual.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} pagas`}
-                        />
                     </div>
 
-                    {/* Dashboard de Status */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Status Mês Atual */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                            <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                                <span className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Icons.Calendar/></span>
-                                {new Date(anoSelecionado, mesSelecionado).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
-                                    <span className="text-emerald-700 font-medium">Entradas Recebidas</span>
-                                    <span className="text-emerald-600 font-bold">{resumoMesAtual.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    {/* SALDOS PRINCIPAIS */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* SALDO DO MÊS */}
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm">
+                                    <Icons.Wallet />
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-rose-50 rounded-lg">
-                                    <span className="text-rose-700 font-medium">Saídas Pagas</span>
-                                    <span className="text-rose-600 font-bold">{resumoMesAtual.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <div>
+                                    <h3 className="text-lg font-bold">Saldo do Mês</h3>
+                                    <p className="text-blue-100 text-sm">Recebidas - Pagas</p>
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
-                                    <span className="text-blue-700 font-medium">Saldo do Mês</span>
-                                    <span className="text-blue-600 font-bold">{resumoMesAtual.saldoMesAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            </div>
+                            <div className="text-center py-4">
+                                <div className="text-4xl font-bold mb-2">
+                                    {resumoMesAtual.saldoMesAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                </div>
+                                <div className="flex justify-center gap-4 mt-4">
+                                    <div className="text-center">
+                                        <div className="text-xs text-blue-200">Recebidas</div>
+                                        <div className="text-lg font-bold">+{resumoMesAtual.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-xs text-blue-200">Pagas</div>
+                                        <div className="text-lg font-bold">-{resumoMesAtual.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Status Geral */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                            <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                                <span className="p-2 bg-purple-100 text-purple-600 rounded-lg"><Icons.History/></span>
-                                Visão Geral Acumulada
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-lg">
-                                    <span className="text-indigo-700 font-medium">Saldo Anterior</span>
-                                    <span className="text-indigo-600 font-bold">{saldoAcumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        {/* SALDO TOTAL */}
+                        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-6 text-white">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm">
+                                    <Icons.DollarSign />
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
-                                    <span className="text-emerald-700 font-medium">+ Entradas Mês</span>
-                                    <span className="text-emerald-600 font-bold">{resumoMesAtual.entradasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <div>
+                                    <h3 className="text-lg font-bold">Saldo Total</h3>
+                                    <p className="text-emerald-100 text-sm">Acumulado + Este mês</p>
                                 </div>
-                                <div className="flex justify-between items-center p-3 bg-rose-50 rounded-lg">
-                                    <span className="text-rose-700 font-medium">- Saídas Mês</span>
-                                    <span className="text-rose-600 font-bold">{resumoMesAtual.saidasConfirmadas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            </div>
+                            <div className="text-center py-4">
+                                <div className={`text-4xl font-bold mb-2 ${resumoMesAtual.saldoTotal >= 0 ? 'text-white' : 'text-red-200'}`}>
+                                    {resumoMesAtual.saldoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </div>
-                                <div className={`flex justify-between items-center p-3 rounded-lg border-2 ${
-                                    resumoMesAtual.saldoTotal >= 0 
-                                        ? 'bg-emerald-50 border-emerald-200' 
-                                        : 'bg-red-50 border-red-200'
-                                }`}>
-                                    <span className={`font-medium ${resumoMesAtual.saldoTotal >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                                        Saldo Total
-                                    </span>
-                                    <span className={`font-bold ${resumoMesAtual.saldoTotal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                        {resumoMesAtual.saldoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                    </span>
+                                <div className="flex justify-center gap-4 mt-4">
+                                    <div className="text-center">
+                                        <div className="text-xs text-emerald-200">Acumulado</div>
+                                        <div className="text-lg font-bold">{saldoAcumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-xs text-emerald-200">Este Mês</div>
+                                        <div className="text-lg font-bold">{resumoMesAtual.saldoMesAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    {/* GRÁFICOS */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Gráfico Pizza */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 card-glass">
                             <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
                                 <span className="p-2 bg-purple-100 text-purple-600 rounded-lg"><Icons.PieChart/></span>
-                                Onde seu dinheiro está indo?
+                                Distribuição das Despesas
                             </h3>
                             <GraficoPizza dados={categoriasData} />
                         </div>
@@ -605,35 +897,304 @@
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 card-glass">
                             <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
                                 <span className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Icons.TrendingUp/></span>
-                                Previsão de Gastos (6 Meses)
+                                Previsão de Gastos (Próximos 6 Meses)
                             </h3>
-                            <p className="text-sm text-slate-500 mb-4">Valores já comprometidos com parcelas e agendamentos.</p>
+                            <p className="text-sm text-slate-500 mb-4">Valores já comprometidos com parcelas e agendamentos futuros.</p>
                             <GraficoBarras dados={previsaoSemestral} />
                         </div>
                     </div>
 
-                    {/* Alertas Rápidos */}
-                    <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
-                        <h3 className="font-bold text-amber-800 flex items-center gap-2 mb-4"><Icons.Alert/> Contas Próximas do Vencimento</h3>
+                    {/* ALERTAS RÁPIDOS */}
+                    <div className="bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-bold text-amber-800 flex items-center gap-2">
+                                <Icons.AlertCircle className="text-amber-600"/> 
+                                Contas Próximas do Vencimento
+                            </h3>
+                            <span className="text-xs font-medium bg-amber-500 text-white px-3 py-1 rounded-full">
+                                {transacoes.filter(t => !t.pago && t.tipo === 'saida').length} pendentes
+                            </span>
+                        </div>
                         <div className="flex gap-4 overflow-x-auto pb-2">
                             {transacoes
                                 .filter(t => !t.pago && t.tipo === 'saida')
                                 .sort((a,b) => new Date(a.data) - new Date(b.data))
                                 .slice(0, 5)
-                                .map(t => (
-                                    <div key={t.id} className="min-w-[200px] bg-white p-4 rounded-xl shadow-sm border border-amber-100">
-                                        <p className="font-semibold text-slate-800 truncate">{t.descricao}</p>
-                                        <p className="text-xs text-slate-500">{new Date(t.data).toLocaleDateString('pt-BR')}</p>
-                                        <p className="font-bold text-amber-600 mt-2">{t.valor.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</p>
+                                .map(t => {
+                                    const cartao = CARTOES.find(c => c.id === t.cartaoId);
+                                    return (
+                                        <button 
+                                            key={t.id} 
+                                            onClick={() => iniciarEdicao(t)}
+                                            className="min-w-[220px] bg-white p-4 rounded-xl shadow-sm border border-amber-200 text-left hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex flex-col"
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className={`px-2 py-1 ${cartao?.corFundo || 'bg-amber-100'} ${cartao?.corTexto || 'text-amber-700'} rounded text-xs font-medium`}>
+                                                    {cartao?.nome || t.categoria}
+                                                </span>
+                                                <span className="text-xs text-amber-600 font-medium">
+                                                    {new Date(t.data).toLocaleDateString('pt-BR')}
+                                                </span>
+                                            </div>
+                                            <p className="font-semibold text-slate-800 truncate mb-2">{t.descricao}</p>
+                                            <div className="mt-auto">
+                                                <p className="font-bold text-amber-600 text-lg">
+                                                    {t.valor.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}
+                                                </p>
+                                                <div className="mt-2 text-xs text-amber-500 font-medium flex items-center gap-1">
+                                                    <Icons.Edit size={10}/> Clique para editar/dar baixa
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            {transacoes.filter(t => !t.pago && t.tipo === 'saida').length === 0 && (
+                                <div className="w-full py-8 text-center">
+                                    <div className="inline-flex items-center gap-2 text-amber-600">
+                                        <Icons.CheckCircle />
+                                        <span className="font-medium">Todas as contas estão em dia!</span>
                                     </div>
-                            ))}
-                            {transacoes.filter(t => !t.pago && t.tipo === 'saida').length === 0 && <p className="text-amber-700 text-sm">Nenhuma conta pendente próxima.</p>}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             );
 
-            // ... (restante do código dos forms permanece igual)
+            const renderGestaoCartoes = () => (
+                <div className="space-y-8 fade-in pb-10">
+                    <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl shadow-xl p-6 text-white">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm">
+                                <Icons.CreditCard2 />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold">Gestão de Cartões de Crédito</h1>
+                                <p className="text-purple-100 opacity-90">Resumo e controle dos seus cartões - {new Date(anoSelecionado, mesSelecionado).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* RESUMO POR CARTÃO */}
+                    <div>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <Icons.Cards />
+                                Resumo por Cartão
+                            </h2>
+                            <div className="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                                Total em cartões: {Object.values(resumoPorCartao).reduce((acc, cartao) => acc + cartao.total, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {CARTOES.map(cartao => {
+                                const resumo = resumoPorCartao[cartao.id];
+                                return (
+                                    <div 
+                                        key={cartao.id} 
+                                        className={`bg-gradient-to-br ${cartao.cor} rounded-2xl shadow-lg p-5 text-white transition-all hover:shadow-xl hover:scale-[1.02] duration-300`}
+                                    >
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
+                                                <Icons.CreditCard />
+                                            </div>
+                                            <button
+                                                onClick={() => darBaixaCartaoMes(cartao.id)}
+                                                className="text-xs font-medium bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
+                                                title="Dar baixa em todas as parcelas deste cartão"
+                                            >
+                                                Baixa Total
+                                            </button>
+                                        </div>
+                                        <h3 className="text-white/90 text-sm font-semibold uppercase tracking-wider mb-2">
+                                            {cartao.nome}
+                                        </h3>
+                                        <div className="text-xl font-bold tracking-tight text-white mb-3">
+                                            {resumo?.total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-white/80">Pago:</span>
+                                                <span className="font-bold">{resumo?.pagas?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-white/80">A Pagar:</span>
+                                                <span className="font-bold">{resumo?.pendentes?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs text-white/70 mt-2">
+                                                <span>{resumo?.quantidadePagas || 0}/{resumo?.quantidade || 0} parcelas</span>
+                                                <span>{resumo?.quantidade || 0} itens</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* DETALHAMENTO DAS PARCELAS POR CARTÃO */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* PARCELAS PENDENTES */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                                <span className="p-2 bg-amber-100 text-amber-600 rounded-lg"><Icons.AlertCircle/></span>
+                                Parcelas Pendentes por Cartão
+                            </h3>
+                            <div className="space-y-4">
+                                {CARTOES.map(cartao => {
+                                    const resumo = resumoPorCartao[cartao.id];
+                                    const pendentes = resumo?.transacoes?.filter(t => !t.pago) || [];
+                                    
+                                    if (pendentes.length === 0) return null;
+                                    
+                                    return (
+                                        <div key={cartao.id} className="border border-slate-200 rounded-xl p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className={`px-3 py-1 ${cartao.corFundo} ${cartao.corTexto} rounded-full text-xs font-bold`}>
+                                                    {cartao.nome}
+                                                </span>
+                                                <span className="text-sm font-semibold text-slate-700">
+                                                    {pendentes.reduce((acc, t) => acc + Number(t.valor), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {pendentes.map(t => (
+                                                    <div key={t.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                                                        <div>
+                                                            <div className="text-sm font-medium text-slate-700">{t.descricao}</div>
+                                                            <div className="text-xs text-slate-500">{new Date(t.data).toLocaleDateString('pt-BR')}</div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-rose-600">
+                                                                {t.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => iniciarEdicao(t)}
+                                                                className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                                                                title="Editar"
+                                                            >
+                                                                <Icons.Edit size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {CARTOES.every(cartao => {
+                                    const resumo = resumoPorCartao[cartao.id];
+                                    return (resumo?.transacoes?.filter(t => !t.pago) || []).length === 0;
+                                }) && (
+                                    <div className="text-center py-8 text-slate-400">
+                                        <Icons.CheckCircle className="inline-block mb-2 text-emerald-500" />
+                                        <p className="font-medium">Todas as parcelas estão em dia!</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* PARCELAS PAGAS */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                                <span className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Icons.CheckCircle/></span>
+                                Parcelas Pagas por Cartão
+                            </h3>
+                            <div className="space-y-4">
+                                {CARTOES.map(cartao => {
+                                    const resumo = resumoPorCartao[cartao.id];
+                                    const pagas = resumo?.transacoes?.filter(t => t.pago) || [];
+                                    
+                                    if (pagas.length === 0) return null;
+                                    
+                                    return (
+                                        <div key={cartao.id} className="border border-slate-200 rounded-xl p-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className={`px-3 py-1 ${cartao.corFundo} ${cartao.corTexto} rounded-full text-xs font-bold`}>
+                                                    {cartao.nome}
+                                                </span>
+                                                <span className="text-sm font-semibold text-slate-700">
+                                                    {pagas.reduce((acc, t) => acc + Number(t.valor), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {pagas.slice(0, 3).map(t => (
+                                                    <div key={t.id} className="flex items-center justify-between p-2 bg-emerald-50 rounded-lg">
+                                                        <div>
+                                                            <div className="text-sm font-medium text-slate-700">{t.descricao}</div>
+                                                            <div className="text-xs text-slate-500">
+                                                                {new Date(t.data).toLocaleDateString('pt-BR')}
+                                                                {t.dataPagamento && (
+                                                                    <span className="text-emerald-600 ml-2">
+                                                                        (Pago em: {new Date(t.dataPagamento).toLocaleDateString('pt-BR')})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <span className="font-bold text-emerald-600">
+                                                            {t.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                                {pagas.length > 3 && (
+                                                    <div className="text-center text-sm text-slate-500 pt-2">
+                                                        + {pagas.length - 3} parcela(s) adicional(is)
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {CARTOES.every(cartao => {
+                                    const resumo = resumoPorCartao[cartao.id];
+                                    return (resumo?.transacoes?.filter(t => t.pago) || []).length === 0;
+                                }) && (
+                                    <div className="text-center py-8 text-slate-400">
+                                        <Icons.AlertCircle className="inline-block mb-2 text-amber-500" />
+                                        <p className="font-medium">Nenhuma parcela paga este mês</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ESTATÍSTICAS DOS CARTÕES */}
+                    <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-2xl p-6">
+                        <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                            <Icons.PieChart className="text-slate-600"/>
+                            Estatísticas dos Cartões
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                <div className="text-sm text-slate-500 mb-1">Total em Cartões</div>
+                                <div className="text-2xl font-bold text-slate-800">
+                                    {Object.values(resumoPorCartao).reduce((acc, cartao) => acc + cartao.total, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                </div>
+                                <div className="text-xs text-slate-400 mt-1">Soma de todos os cartões</div>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                <div className="text-sm text-slate-500 mb-1">Total de Parcelas</div>
+                                <div className="text-2xl font-bold text-slate-800">
+                                    {Object.values(resumoPorCartao).reduce((acc, cartao) => acc + cartao.quantidade, 0)}
+                                </div>
+                                <div className="text-xs text-slate-400 mt-1">Parcelas em todos os cartões</div>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                <div className="text-sm text-slate-500 mb-1">Taxa de Quitação</div>
+                                <div className="text-2xl font-bold text-emerald-600">
+                                    {(() => {
+                                        const totalParcelas = Object.values(resumoPorCartao).reduce((acc, cartao) => acc + cartao.quantidade, 0);
+                                        const parcelasPagas = Object.values(resumoPorCartao).reduce((acc, cartao) => acc + cartao.quantidadePagas, 0);
+                                        return totalParcelas > 0 ? Math.round((parcelasPagas / totalParcelas) * 100) : 0;
+                                    })()}%
+                                </div>
+                                <div className="text-xs text-slate-400 mt-1">Parcelas pagas / total</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
 
             const renderForm = (tipo) => (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 fade-in">
@@ -642,46 +1203,163 @@
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 sticky top-6">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className={`p-3 rounded-xl ${tipo === 'entrada' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                    <Icons.Plus />
+                                    {editandoId ? <Icons.Edit /> : <Icons.Plus />}
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800">Nova {tipo === 'entrada' ? 'Receita' : 'Despesa'}</h3>
-                                    <p className="text-xs text-slate-500">Preencha os dados do lançamento</p>
+                                    <h3 className="font-bold text-slate-800">
+                                        {editandoId ? `Editando ${tipo === 'entrada' ? 'Receita' : 'Despesa'}` : `Nova ${tipo === 'entrada' ? 'Receita' : 'Despesa'}`}
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        {editandoId ? 'Edite os dados do lançamento' : 'Preencha os dados do lançamento'}
+                                    </p>
                                 </div>
+                                {editandoId && (
+                                    <button 
+                                        onClick={() => {
+                                            setEditandoId(null);
+                                            setItemEditando({ 
+                                                tipo: '', 
+                                                categoria: '', 
+                                                valor: '', 
+                                                data: '', 
+                                                descricao: '', 
+                                                observacao: '', 
+                                                dataPagamento: '', 
+                                                cartaoId: '' 
+                                            });
+                                            setNovoItem({ 
+                                                tipo: 'saida', 
+                                                categoria: '', 
+                                                valor: '', 
+                                                data: '', 
+                                                descricao: '', 
+                                                observacao: '',
+                                                cartaoId: '' 
+                                            });
+                                        }}
+                                        className="ml-auto p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        title="Cancelar edição"
+                                    >
+                                        <Icons.X />
+                                    </button>
+                                )}
                             </div>
                             
-                            <form onSubmit={salvarTransacao} className="space-y-4">
+                            <form onSubmit={editandoId ? salvarEdicao : salvarTransacao} className="space-y-4">
                                 <div>
                                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Descrição</label>
-                                    <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" value={novoItem.descricao} onChange={e => setNovoItem({...novoItem, descricao: e.target.value, tipo})} placeholder="Ex: Conta de Luz" />
+                                    <input 
+                                        required 
+                                        type="text" 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                        value={editandoId ? itemEditando.descricao : novoItem.descricao} 
+                                        onChange={e => editandoId 
+                                            ? setItemEditando({...itemEditando, descricao: e.target.value}) 
+                                            : setNovoItem({...novoItem, descricao: e.target.value, tipo})
+                                        } 
+                                        placeholder="Ex: Conta de Luz" 
+                                    />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Valor</label>
-                                        <input required type="number" step="0.01" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={novoItem.valor} onChange={e => setNovoItem({...novoItem, valor: e.target.value, tipo})} placeholder="0,00" />
+                                        <input 
+                                            required 
+                                            type="number" 
+                                            step="0.01" 
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
+                                            value={editandoId ? itemEditando.valor : novoItem.valor} 
+                                            onChange={e => editandoId 
+                                                ? setItemEditando({...itemEditando, valor: e.target.value}) 
+                                                : setNovoItem({...novoItem, valor: e.target.value, tipo})
+                                            } 
+                                            placeholder="0,00" 
+                                        />
                                     </div>
                                     <div>
                                         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Data</label>
-                                        <input required type="date" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-600" value={novoItem.data} onChange={e => setNovoItem({...novoItem, data: e.target.value, tipo})} />
+                                        <input 
+                                            required 
+                                            type="date" 
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-600" 
+                                            value={editandoId ? itemEditando.data : novoItem.data} 
+                                            onChange={e => editandoId 
+                                                ? setItemEditando({...itemEditando, data: e.target.value}) 
+                                                : setNovoItem({...novoItem, data: e.target.value, tipo})
+                                            } 
+                                        />
                                     </div>
                                 </div>
 
                                 <div>
                                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Categoria</label>
-                                    <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={novoItem.categoria} onChange={e => setNovoItem({...novoItem, categoria: e.target.value, tipo})}>
+                                    <select 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
+                                        value={editandoId ? itemEditando.categoria : novoItem.categoria} 
+                                        onChange={e => editandoId 
+                                            ? setItemEditando({...itemEditando, categoria: e.target.value}) 
+                                            : setNovoItem({...novoItem, categoria: e.target.value, tipo})
+                                        }
+                                    >
                                         <option value="">Selecione...</option>
                                         {(tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA).map(c => <option key={c} value={c}>{c}</option>)}
+                                        {tipo === 'saida' && CARTOES.map(cartao => (
+                                            <option key={cartao.id} value={cartao.nome}>{cartao.nome}</option>
+                                        ))}
                                     </select>
                                 </div>
 
+                                {tipo === 'saida' && (
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Cartão de Crédito (Opcional)</label>
+                                        <select 
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
+                                            value={editandoId ? itemEditando.cartaoId : novoItem.cartaoId} 
+                                            onChange={e => editandoId 
+                                                ? setItemEditando({...itemEditando, cartaoId: e.target.value}) 
+                                                : setNovoItem({...novoItem, cartaoId: e.target.value})
+                                            }
+                                        >
+                                            <option value="">Não é parcelamento</option>
+                                            {CARTOES.map(cartao => (
+                                                <option key={cartao.id} value={cartao.id}>{cartao.nome}</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-slate-400 mt-1">Selecione apenas se for uma compra parcelada no cartão</p>
+                                    </div>
+                                )}
+
+                                {editandoId && (
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Data de Pagamento/Recebimento (Opcional)</label>
+                                        <input 
+                                            type="date" 
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-600" 
+                                            value={itemEditando.dataPagamento || ''} 
+                                            onChange={e => setItemEditando({...itemEditando, dataPagamento: e.target.value})} 
+                                            placeholder="Deixe em branco para não confirmar"
+                                        />
+                                        <p className="text-xs text-slate-400 mt-1">Preencha para marcar como pago/recebido</p>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Observação (Opcional)</label>
-                                    <textarea rows="2" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" value={novoItem.observacao} onChange={e => setNovoItem({...novoItem, observacao: e.target.value, tipo})} placeholder="Detalhes adicionais..."></textarea>
+                                    <textarea 
+                                        rows="2" 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm" 
+                                        value={editandoId ? itemEditando.observacao : novoItem.observacao} 
+                                        onChange={e => editandoId 
+                                            ? setItemEditando({...itemEditando, observacao: e.target.value}) 
+                                            : setNovoItem({...novoItem, observacao: e.target.value, tipo})
+                                        } 
+                                        placeholder="Detalhes adicionais..."
+                                    ></textarea>
                                 </div>
 
                                 <Botao variant={tipo === 'entrada' ? 'success' : 'danger'} className="w-full mt-2">
-                                    Confirmar Lançamento
+                                    {editandoId ? 'Atualizar Lançamento' : 'Confirmar Lançamento'}
                                 </Botao>
                             </form>
                         </div>
@@ -706,7 +1384,7 @@
                                         <tr>
                                             <th className="p-4">Data</th>
                                             <th className="p-4">Descrição / Obs</th>
-                                            <th className="p-4">Categoria</th>
+                                            <th className="p-4">Categoria / Cartão</th>
                                             <th className="p-4">Valor</th>
                                             <th className="p-4 text-center">Status</th>
                                             <th className="p-4 text-center">Ações</th>
@@ -715,51 +1393,84 @@
                                     <tbody className="divide-y divide-slate-100">
                                         {carregando ? (
                                             <tr><td colSpan="6" className="p-8 text-center text-slate-400">Carregando...</td></tr>
-                                        ) : dadosFiltrados.filter(t => t.tipo === tipo).map(item => (
-                                            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                                                <td className="p-4 text-slate-500 font-medium whitespace-nowrap">
-                                                    {new Date(item.data + 'T12:00:00').getDate().toString().padStart(2, '0')}/
-                                                    {(new Date(item.data + 'T12:00:00').getMonth() + 1).toString().padStart(2, '0')}
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="font-semibold text-slate-700">{item.descricao}</div>
-                                                    {item.observacao && <div className="text-xs text-slate-400 mt-1 italic">{item.observacao}</div>}
-                                                </td>
-                                                <td className="p-4"><span className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">{item.categoria}</span></td>
-                                                <td className={`p-4 font-bold ${tipo === 'entrada' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                    {item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.pago 
-                                                        ? 'bg-emerald-100 text-emerald-700' 
-                                                        : 'bg-amber-100 text-amber-700'
-                                                    }`}>
-                                                        {item.pago 
-                                                            ? (tipo === 'entrada' ? 'Recebido' : 'Pago')
-                                                            : (tipo === 'entrada' ? 'A Receber' : 'A Pagar')
-                                                        }
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex justify-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button 
-                                                            onClick={() => toggleConfirmacao(item.id, item.pago, tipo)} 
-                                                            className={`p-2 rounded-lg transition-colors ${item.pago 
-                                                                ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200' 
-                                                                : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                                                            }`} 
-                                                            title={item.pago 
-                                                                ? (tipo === 'entrada' ? 'Marcar como Não Recebido' : 'Marcar como Não Pago')
-                                                                : (tipo === 'entrada' ? 'Confirmar Recebimento' : 'Confirmar Pagamento')
+                                        ) : dadosFiltrados.filter(t => t.tipo === tipo).map(item => {
+                                            const cartao = CARTOES.find(c => c.id === item.cartaoId);
+                                            return (
+                                                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <td className="p-4 text-slate-500 font-medium whitespace-nowrap">
+                                                        {new Date(item.data + 'T12:00:00').getDate().toString().padStart(2, '0')}/
+                                                        {(new Date(item.data + 'T12:00:00').getMonth() + 1).toString().padStart(2, '0')}
+                                                        {item.dataPagamento && (
+                                                            <div className="text-xs text-emerald-600 mt-1">
+                                                                Pago: {new Date(item.dataPagamento).getDate().toString().padStart(2, '0')}/
+                                                                {(new Date(item.dataPagamento).getMonth() + 1).toString().padStart(2, '0')}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="font-semibold text-slate-700">{item.descricao}</div>
+                                                        {item.observacao && <div className="text-xs text-slate-400 mt-1 italic">{item.observacao}</div>}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {cartao ? (
+                                                            <span className={`px-2 py-1 ${cartao.corFundo} ${cartao.corTexto} rounded text-xs font-medium`}>
+                                                                {cartao.nome}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">
+                                                                {item.categoria}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className={`p-4 font-bold ${tipo === 'entrada' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.pago 
+                                                            ? 'bg-emerald-100 text-emerald-700' 
+                                                            : 'bg-amber-100 text-amber-700'
+                                                        }`}>
+                                                            {item.pago 
+                                                                ? (tipo === 'entrada' ? 'Recebido' : 'Pago')
+                                                                : (tipo === 'entrada' ? 'A Receber' : 'A Pagar')
                                                             }
-                                                        >
-                                                            {item.pago ? <Icons.Check /> : <Icons.Clock />}
-                                                        </button>
-                                                        <button onClick={() => deletarTransacao(item.id)} className="p-2 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-colors"><Icons.Trash /></button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex justify-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button 
+                                                                onClick={() => iniciarEdicao(item)} 
+                                                                className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                                                                title="Editar"
+                                                            >
+                                                                <Icons.Edit />
+                                                            </button>
+                                                            
+                                                            <button 
+                                                                onClick={() => item.pago 
+                                                                    ? toggleConfirmacao(item.id, item.pago, tipo, item.cartaoId) 
+                                                                    : darBaixaComData(item.id, tipo, item.cartaoId)
+                                                                } 
+                                                                className={`p-2 rounded-lg transition-colors ${item.pago 
+                                                                    ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200' 
+                                                                    : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                                                                }`} 
+                                                                title={item.pago 
+                                                                    ? (tipo === 'entrada' ? 'Marcar como Não Recebido' : 'Marcar como Não Pago')
+                                                                    : (tipo === 'entrada' ? 'Confirmar Recebimento com Data' : 'Confirmar Pagamento com Data')
+                                                                }
+                                                            >
+                                                                {item.pago ? <Icons.Check /> : <Icons.Clock />}
+                                                            </button>
+                                                            
+                                                            <button onClick={() => deletarTransacao(item.id)} className="p-2 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-100 hover:text-rose-600 transition-colors" title="Excluir">
+                                                                <Icons.Trash />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                         {!carregando && dadosFiltrados.filter(t => t.tipo === tipo).length === 0 && <tr><td colSpan="6" className="p-8 text-center text-slate-400">Nenhum registro encontrado.</td></tr>}
                                     </tbody>
                                 </table>
@@ -787,6 +1498,7 @@
                                 { id: 'entradas', label: 'Minhas Entradas', icon: Icons.ArrowUp },
                                 { id: 'saidas', label: 'Minhas Despesas', icon: Icons.ArrowDown },
                                 { id: 'cartoes', label: 'Parcelamentos', icon: Icons.CreditCard },
+                                { id: 'gestao-cartoes', label: 'Gestão Cartões', icon: Icons.CreditCard2 },
                             ].map(item => (
                                 <button key={item.id} onClick={() => { setTelaAtual(item.id); setMenuAberto(false); }} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-medium group ${telaAtual === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}>
                                     <item.icon /> {item.label}
@@ -807,6 +1519,7 @@
                                         {telaAtual === 'entradas' && 'Gestão de Entradas'}
                                         {telaAtual === 'saidas' && 'Gestão de Saídas'}
                                         {telaAtual === 'cartoes' && 'Simulador de Parcelas'}
+                                        {telaAtual === 'gestao-cartoes' && 'Gestão de Cartões'}
                                     </h2>
                                     <p className="text-sm text-slate-500">Bem-vindo ao seu painel financeiro.</p>
                                 </div>
@@ -824,6 +1537,7 @@
                         </div>
                         
                         {telaAtual === 'dashboard' && renderDashboard()}
+                        {telaAtual === 'gestao-cartoes' && renderGestaoCartoes()}
                         {(telaAtual === 'entradas' || telaAtual === 'saidas') && renderForm(telaAtual === 'entradas' ? 'entrada' : 'saida')}
                         
                         {telaAtual === 'cartoes' && (
@@ -838,34 +1552,81 @@
                                     </div>
                                     
                                     <form onSubmit={gerarParcelas} className="space-y-5">
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            {['Cartão Nubank', 'Cartão Banco do Brasil', 'Outros Parcelamentos'].map(c => (
-                                                <button type="button" key={c} onClick={() => setDadosCartao({...dadosCartao, cardNome: c})} className={`py-3 px-2 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all ${dadosCartao.cardNome===c ? 'border-purple-500 bg-purple-50 text-purple-700 ring-2 ring-purple-100' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>{c}</button>
-                                            ))}
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-400 uppercase ml-1 block mb-2">Selecione o Cartão</label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                {CARTOES.map(cartao => (
+                                                    <button 
+                                                        type="button" 
+                                                        key={cartao.id} 
+                                                        onClick={() => setDadosCartao({...dadosCartao, cardNome: cartao.nome, cartaoId: cartao.id})} 
+                                                        className={`py-4 px-3 rounded-xl border text-xs font-bold uppercase tracking-wide transition-all flex flex-col items-center gap-2 ${
+                                                            dadosCartao.cartaoId === cartao.id 
+                                                                ? `border-2 ${cartao.corTexto.replace('text-', 'border-')} bg-gradient-to-br ${cartao.cor} text-white ring-2 ${cartao.corTexto.replace('text-', 'ring-')}/20` 
+                                                                : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <Icons.CreditCard className="w-5 h-5" />
+                                                        {cartao.nome}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                         
                                         <div className="space-y-4">
-                                            <input type="text" placeholder="Descrição (ex: TV Nova)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" value={dadosCartao.descricao} onChange={e => setDadosCartao({...dadosCartao, descricao: e.target.value})} />
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-400 uppercase ml-1">Descrição da Compra</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Ex: TV Nova, Móveis, Eletrodoméstico" 
+                                                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" 
+                                                    value={dadosCartao.descricao} 
+                                                    onChange={e => setDadosCartao({...dadosCartao, descricao: e.target.value})} 
+                                                />
+                                            </div>
                                             
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="text-xs font-bold text-slate-400 uppercase ml-1">Valor Total</label>
-                                                    <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" value={dadosCartao.valorTotal} onChange={e => setDadosCartao({...dadosCartao, valorTotal: e.target.value})} />
+                                                    <input 
+                                                        type="number" 
+                                                        placeholder="R$ 0,00" 
+                                                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" 
+                                                        value={dadosCartao.valorTotal} 
+                                                        onChange={e => setDadosCartao({...dadosCartao, valorTotal: e.target.value})} 
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className="text-xs font-bold text-slate-400 uppercase ml-1">Parcelas</label>
-                                                    <input type="number" placeholder="12x" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" value={dadosCartao.parcelas} onChange={e => setDadosCartao({...dadosCartao, parcelas: e.target.value})} />
+                                                    <input 
+                                                        type="number" 
+                                                        placeholder="12x" 
+                                                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" 
+                                                        value={dadosCartao.parcelas} 
+                                                        onChange={e => setDadosCartao({...dadosCartao, parcelas: e.target.value})} 
+                                                    />
                                                 </div>
                                             </div>
 
                                             <div>
                                                 <label className="text-xs font-bold text-slate-400 uppercase ml-1">Data 1ª Parcela</label>
-                                                <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-600" value={dadosCartao.dataCompra} onChange={e => setDadosCartao({...dadosCartao, dataCompra: e.target.value})} />
+                                                <input 
+                                                    type="date" 
+                                                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-slate-600" 
+                                                    value={dadosCartao.dataCompra} 
+                                                    onChange={e => setDadosCartao({...dadosCartao, dataCompra: e.target.value})} 
+                                                />
                                             </div>
 
                                             <div>
                                                 <label className="text-xs font-bold text-slate-400 uppercase ml-1">Observação</label>
-                                                <textarea rows="2" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-sm" value={dadosCartao.observacao} onChange={e => setDadosCartao({...dadosCartao, observacao: e.target.value})} placeholder="Detalhes da compra..."></textarea>
+                                                <textarea 
+                                                    rows="2" 
+                                                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-sm" 
+                                                    value={dadosCartao.observacao} 
+                                                    onChange={e => setDadosCartao({...dadosCartao, observacao: e.target.value})} 
+                                                    placeholder="Detalhes da compra, loja, etc..."
+                                                ></textarea>
                                             </div>
                                         </div>
 
@@ -883,18 +1644,39 @@
                                         <div className="bg-white/10 p-4 rounded-2xl w-fit mb-6 backdrop-blur-md border border-white/10">
                                             <Icons.Calendar />
                                         </div>
-                                        <h3 className="text-2xl font-bold mb-2">Previsão Inteligente</h3>
-                                        <p className="text-purple-100 leading-relaxed opacity-90">
-                                            Ao confirmar este parcelamento, o sistema irá criar automaticamente os lançamentos nos próximos meses.
-                                            <br/><br/>
-                                            Você poderá ver o impacto no gráfico de <strong>Previsão de Gastos</strong> no seu Dashboard.
-                                        </p>
+                                        <h3 className="text-2xl font-bold mb-2">Sistema Inteligente de Parcelas</h3>
+                                        <div className="text-purple-100 leading-relaxed opacity-90 space-y-3">
+                                            <p>
+                                                ✅ <strong>Atribuição automática</strong> ao cartão selecionado
+                                            </p>
+                                            <p>
+                                                ✅ <strong>Baixa em lote</strong> - Quitação de todas as parcelas do cartão com um clique
+                                            </p>
+                                            <p>
+                                                ✅ <strong>Resumo por cartão</strong> na tela de Gestão de Cartões
+                                            </p>
+                                            <p>
+                                                ✅ <strong>Identificação visual</strong> - Cores diferentes para cada cartão
+                                            </p>
+                                            <p className="mt-4">
+                                                Ao confirmar este parcelamento, o sistema irá criar automaticamente os lançamentos nos próximos meses com a categoria do cartão.
+                                            </p>
+                                        </div>
                                     </div>
                                     <div className="mt-8 pt-6 border-t border-white/10 relative z-10">
                                         <div className="flex justify-between items-center text-sm font-medium text-purple-200">
-                                            <span>Simulação:</span>
-                                            <span>{dadosCartao.valorTotal && dadosCartao.parcelas ? (dadosCartao.valorTotal / dadosCartao.parcelas).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}) + ' /mês' : 'R$ 0,00 /mês'}</span>
+                                            <span>Simulação do Parcelamento:</span>
+                                            <span className="text-lg font-bold">
+                                                {dadosCartao.valorTotal && dadosCartao.parcelas ? 
+                                                    (dadosCartao.valorTotal / dadosCartao.parcelas).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}) + ' /mês' 
+                                                    : 'R$ 0,00 /mês'}
+                                            </span>
                                         </div>
+                                        {dadosCartao.cartaoId && (
+                                            <div className="mt-3 text-xs text-purple-300">
+                                                Cartão selecionado: <strong>{CARTOES.find(c => c.id === dadosCartao.cartaoId)?.nome}</strong>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
